@@ -31,12 +31,14 @@ I got tired of doing this in three tools — one to write the bait files, smbcli
 ## Tested on
 
 - Windows 11 · stable Rust — build host; unit, golden and CLI tests
-- ubuntu-24.04 · live Samba share — CI drops, lists and cleans against it on every commit
+- windows-2022 · live Windows share — CI drops, lists and cleans against it on every commit
+- ubuntu-24.04 · live Samba share — CI drops and cleans against it on every commit (`list` is Windows-only, see below)
 - *Not* tested: macOS — cross-compiled and unsigned; probably works, no promises
 
 ## Known issues
 
 - `listen` needs Responder, which only runs on Linux. On Windows it explains and exits 4.
+- `list` enumerates shares over DCE/RPC, and the `smb` crate offers only the NDR64 transfer syntax when binding. Windows accepts it (CI proves `list` against a live Windows share); Samba's srvsvc endpoint rejects it. Until the crate learns classic NDR, `list` is Windows-only — against Samba/NAS targets it fails loudly while `drop`/`clean` work fine.
 - Anonymous drops are guest sessions — the Rust SMB stack can't express a true null session, so `guest` + empty password is the portable equivalent. Against servers that accept the session before SSPI completes (Samba `map to guest`, most NAS devices), the `smb` crate currently errors with "SMB session setup succeeded before SSPI authentication completed" — a crate limitation, not fixable from here. Guest access is best-effort; authenticated drops are the tested path (CI proves them against a live Samba share on every commit). Default Windows refuses guest either way.
 - The macOS binaries are not notarized; first run needs `xattr -d com.apple.quarantine` on the binary.
 

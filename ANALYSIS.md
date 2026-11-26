@@ -86,6 +86,14 @@ written, and the port is tested against those recordings.
 - **The SMB stack is young.** `smb` 0.12 is pure Rust and maintained, but has
   nowhere near impacket's mileage. Oddball servers (old Samba, printers, NAS
   firmware) may misbehave in ways smbclient wouldn't.
+- **`list` is Windows-only for now.** Share enumeration runs DCE/RPC
+  (srvsvc NetrShareEnum), and the crate binds offering only the NDR64
+  transfer syntax — classic NDR is never proposed and there is no NDR32
+  marshalling to fall back to, so this needs an upstream change. Windows
+  accepts NDR64 (CI proves `list` against a windows-2022 share); Samba's
+  srvsvc endpoint rejects it (`ProposedTransferSyntaxesNotSupported`), so
+  against Samba/NAS targets `list` fails loudly while `drop`/`clean` —
+  plain file operations — are CI-verified there.
 - **Anonymous drops are guest sessions, and guest is best-effort.** The NTLM
   stack cannot express a true null session (empty identity is rejected), so
   `guest` + empty password is the portable equivalent. Servers that accept the

@@ -27,7 +27,43 @@ jobs:
           toolchain: stable
       - run: cargo test --locked
 
-  integration:
+  integration-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - run: cargo build --locked
+      - name: Local share and user
+        shell: pwsh
+        run: |
+          Start-Service LanmanServer -ErrorAction SilentlyContinue
+          net user smbtest 'Passw0rd!' /add | Out-Null
+          New-Item -ItemType Directory -Path C:\hb-share -Force | Out-Null
+          icacls C:\hb-share /grant 'smbtest:(OI)(CI)M' | Out-Null
+          New-SmbShare -Name public -Path C:\hb-share -FullAccess smbtest | Out-Null
+      - name: authenticated drop, list, clean against the live share
+        shell: pwsh
+        run: |
+          ./target/debug/hash-bait.exe drop -t 127.0.0.1 -c 127.0.0.1 -s public -u smbtest --pass 'Passw0rd!' --no-listen
+          if ($LASTEXITCODE -ne 0) { throw "drop failed ($LASTEXITCODE)" }
+          if ((Get-ChildItem C:\hb-share -Filter '@bait.*').Count -ne 3) { throw 'expected 3 bait files on the share' }
+          $listed = ./target/debug/hash-bait.exe list -t 127.0.0.1 -u smbtest --pass 'Passw0rd!' | Out-String
+          if ($LASTEXITCODE -ne 0) { throw "list failed ($LASTEXITCODE)" }
+          if ($listed -notmatch 'public') { throw "share 'public' not enumerated: $listed" }
+          ./target/debug/hash-bait.exe clean -t 127.0.0.1 -s public -u smbtest --pass 'Passw0rd!'
+          if ($LASTEXITCODE -ne 0) { throw "clean failed ($LASTEXITCODE)" }
+          if (Get-ChildItem C:\hb-share) { throw 'share not cleaned' }
+      - name: cleanup
+        if: always()
+        shell: pwsh
+        run: |
+          Remove-SmbShare -Name public -Force -ErrorAction SilentlyContinue
+          Remove-Item C:\hb-share -Recurse -Force -ErrorAction SilentlyContinue
+          net user smbtest /delete | Out-Null
+
+  integration-samba:
     runs-on: ubuntu-24.04
     steps:
       - uses: actions/checkout@v5
@@ -45,13 +81,15 @@ jobs:
           sudo useradd -M smbtest
           printf 'Passw0rd!\nPassw0rd!\n' | sudo smbpasswd -a smbtest
           sudo systemctl restart smbd
-      - name: authenticated drop, list, clean against the live share
+      - name: authenticated drop and clean against the live share
         run: |
           ./target/debug/hash-bait drop -t 127.0.0.1 -c 127.0.0.1 -s public -u smbtest --pass 'Passw0rd!' --no-listen
           test "$(ls /srv/public | grep -c '^@bait\.')" = "3"
-          ./target/debug/hash-bait list -t 127.0.0.1 -u smbtest --pass 'Passw0rd!' | grep -q public
           ./target/debug/hash-bait clean -t 127.0.0.1 -s public -u smbtest --pass 'Passw0rd!'
           test -z "$(ls -A /srv/public)"
+      - name: share list (informational; Samba rejects the NDR64 syntax smb requires)
+        continue-on-error: true
+        run: ./target/debug/hash-bait list -t 127.0.0.1 -u smbtest --pass 'Passw0rd!'
       - name: guest drop (informational; smb-crate guest auth is incomplete)
         continue-on-error: true
         run: ./target/debug/hash-bait drop -t 127.0.0.1 -c 127.0.0.1 -s public --no-listen
