@@ -1,21 +1,31 @@
+# Cover + social preview. Regenerate from the folder holding both clones:
+#   python3 rfs-brand/tools/make-cover.py hash-bait/docs/assets/cover.toml
+# Preview at 1200, 830, and 400 px in both themes:
+#   python3 rfs-brand/tools/make-cover.py hash-bait/docs/assets/cover.toml --preview preview.png
 name        = "hash-bait"
 description = "Drop poisoned shortcuts on SMB shares to coerce NTLM hashes"
 
+# The tool as a flow: bait files go onto a writable share, browsing users hand
+# their NetNTLMv2 to Responder. Filenames and status lines are real output.
 [panel]
 kind   = "flow"
-status = ["plan start Responder on tun0", "ok dry-run complete"]
+status = [
+  "ok dropped 3 payload(s) on //dc1/public",
+  "ok removed 3 payload(s) from //dc1/public",
+]
 
 [panel.input]
-label = "Writable share"
-note  = "//10.10.10.5/public"
+label = "SMB share"
+note  = "writable, browsed by users"
 chips = ["@bait.url", "@bait.scf", "@bait.xml"]
+tone  = "amber"
 
 [panel.tool]
 label = "hash-bait"
-note  = "drop"
+note  = "drop · listen · clean"
 
 [panel.output]
 label = "Responder"
-note  = "captured authentication"
+note  = "on the Kali box"
 value = "NetNTLMv2"
 tone  = "mint"

@@ -49,4 +49,6 @@ I got tired of doing this in three tools — one to write the bait files, smbcli
 
 ## License
 
-MIT
+[MIT](LICENSE). For authorized security testing with explicit written permission only.
+
+[Project page](https://real-fruit-snacks.github.io/hash-bait/) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Analysis](ANALYSIS.md)

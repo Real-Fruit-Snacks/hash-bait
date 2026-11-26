@@ -2,6 +2,7 @@
 //!
 //! For authorized security testing with explicit written permission only.
 
+use std::io::IsTerminal;
 use std::process::ExitCode;
 
 use clap::Parser;
@@ -14,7 +15,9 @@ use smb_ops::Creds;
 
 fn main() -> ExitCode {
     let args = Cli::parse();
-    out::init(args.no_color || std::env::var_os("NO_COLOR").is_some());
+    out::init(
+        args.no_color || std::env::var_os("NO_COLOR").is_some() || !std::io::stdout().is_terminal(),
+    );
 
     match args.command {
         Commands::Drop(a) => cmd_drop(&a),

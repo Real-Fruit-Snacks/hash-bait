@@ -48,8 +48,7 @@ jobs:
         run: |
           mkdir -p dist
           if [[ "${{ matrix.asset }}" == *.zip ]]; then
-            cp "target/${{ matrix.target }}/release/${{ matrix.exe }}" dist/
-            (cd dist && 7z a "${{ matrix.asset }}" "${{ matrix.exe }}")
+            (cd "target/${{ matrix.target }}/release" && 7z a "$OLDPWD/dist/${{ matrix.asset }}" "${{ matrix.exe }}")
           else
             tar -czf "dist/${{ matrix.asset }}" -C "target/${{ matrix.target }}/release" "${{ matrix.exe }}"
           fi
