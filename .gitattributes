@@ -1,0 +1,7 @@
+* text=auto
+
+# Golden payloads are byte-exact references — never normalize them.
+tests/golden/* -text
+
+# Shell scripts keep LF everywhere.
+install.sh text eol=lf
