@@ -10,7 +10,7 @@ pub const PASSWORD_ENV: &str = "HASH_BAIT_PASSWORD";
 #[derive(Parser, Debug)]
 #[command(
     name = "hash-bait",
-    version,
+    version = concat!("v", env!("CARGO_PKG_VERSION")),
     about = "Drop poisoned shortcuts on SMB shares to coerce NTLM hashes",
     long_about = "Drop poisoned .url/.scf/.xml shortcuts on writable SMB shares so that \
                   browsing users hand you their NetNTLM authentication. Pair with \
