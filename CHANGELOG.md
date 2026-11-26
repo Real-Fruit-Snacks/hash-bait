@@ -2,17 +2,19 @@
 
 Format: [Keep a Changelog](https://keepachangelog.com/en/1.1.0/). Versions: [SemVer](https://semver.org/).
 
-## [Unreleased]
+## [1.0.1] - 2026-11-25
 
 ### Added
 
 - Project page at <https://real-fruit-snacks.github.io/hash-bait/> (docs/, GitHub Pages)
 - Generated README cover and social preview (`docs/assets/`), rendered by `rfs-brand/tools/make-cover.py`
 - `AGENTS.md` (RFS Cyclorama Dawn guardrails) and `SECURITY.md`
+- Colour handling now also honours `TERM=dumb`, and terminals without truecolour (`TERM=linux`, or a `COLORTERM` other than `truecolor`/`24bit`) get the CLI standard's 16-colour row in place of the truecolour escapes
 
 ### Changed
 
 - Terminal output follows the Cyclorama Dawn CLI standard: bracketed `[ok]` / `[!]` / `[x]` / `[i]` tags and the Beacon prompt, with color also stripped when stdout is not a terminal (`NO_COLOR` and `--no-color` unchanged)
+- `--version` prints `hash-bait v1.0.1`, the standard's `<tool> vX.Y.Z`
 - CI proves `drop`/`list`/`clean` against a live Windows share on windows-2022; the Samba job asserts authenticated `drop`/`clean`, with `list` and the guest drop as informational probes
 - Release packaging no longer ships a bare `hash-bait.exe` next to the Windows zip
 

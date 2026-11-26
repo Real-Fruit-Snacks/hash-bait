@@ -15,9 +15,11 @@ use smb_ops::Creds;
 
 fn main() -> ExitCode {
     let args = Cli::parse();
-    out::init(
-        args.no_color || std::env::var_os("NO_COLOR").is_some() || !std::io::stdout().is_terminal(),
-    );
+    let no_colour = args.no_color
+        || std::env::var_os("NO_COLOR").is_some()
+        || std::env::var("TERM").is_ok_and(|t| t == "dumb")
+        || !std::io::stdout().is_terminal();
+    out::init(no_colour, !no_colour && limited_terminal());
 
     match args.command {
         Commands::Drop(a) => cmd_drop(&a),
@@ -25,6 +27,15 @@ fn main() -> ExitCode {
         Commands::Listen(a) => cmd_listen(&a),
         Commands::List(a) => cmd_list(&a),
     }
+}
+
+/// True when the terminal clearly lacks truecolour: the Linux kernel
+/// console (TERM=linux), or a COLORTERM that does not ask for it.
+fn limited_terminal() -> bool {
+    if std::env::var("TERM").is_ok_and(|t| t == "linux") {
+        return true;
+    }
+    matches!(std::env::var("COLORTERM"), Ok(v) if v != "truecolor" && v != "24bit")
 }
 
 /// Password, user pairing rules from the original tool: a user with no

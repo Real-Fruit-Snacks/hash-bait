@@ -1,6 +1,6 @@
 [package]
 name = "hash-bait"
-version = "1.0.0"
+version = "1.0.1"
 authors = ["Real-Fruit-Snacks"]
 description = "Drop poisoned shortcuts on SMB shares to coerce NTLM hashes"
 license = "MIT"
