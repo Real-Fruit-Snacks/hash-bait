@@ -1,0 +1,30 @@
+[package]
+name = "hash-bait"
+version = "1.0.0"
+authors = ["Real-Fruit-Snacks"]
+description = "Drop poisoned shortcuts on SMB shares to coerce NTLM hashes"
+license = "MIT"
+repository = "https://github.com/Real-Fruit-Snacks/hash-bait"
+edition = "2021"
+include = ["src/**", "LICENSE", "README.md"]
+
+# Its own workspace: cargo never looks for one in a folder above.
+[workspace]
+
+[[bin]]
+name = "hash-bait"
+path = "src/main.rs"
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+smb = { version = "0.12", default-features = false, features = ["single_threaded", "sign", "encrypt"] }
+# Direct dep so share-enumeration types (NdrPtr/NdrString) can be named.
+smb-rpc = { version = "0.12", default-features = false, features = ["is_sync"] }
+rpassword = "7"
+
+[profile.release]
+opt-level = "s"
+lto = true
+codegen-units = 1
+strip = true
+panic = "unwind"

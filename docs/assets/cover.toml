@@ -1,0 +1,21 @@
+name        = "hash-bait"
+description = "Drop poisoned shortcuts on SMB shares to coerce NTLM hashes"
+
+[panel]
+kind   = "flow"
+status = ["plan start Responder on tun0", "ok dry-run complete"]
+
+[panel.input]
+label = "Writable share"
+note  = "//10.10.10.5/public"
+chips = ["@bait.url", "@bait.scf", "@bait.xml"]
+
+[panel.tool]
+label = "hash-bait"
+note  = "drop"
+
+[panel.output]
+label = "Responder"
+note  = "captured authentication"
+value = "NetNTLMv2"
+tone  = "mint"

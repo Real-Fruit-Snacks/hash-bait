@@ -1,0 +1,52 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+  workflow_call:
+
+jobs:
+  check-windows:
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+          components: clippy, rustfmt
+      - run: cargo fmt --check
+      - run: cargo clippy --all-targets -- -D warnings
+      - run: cargo test --locked
+
+  test-linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - run: cargo test --locked
+
+  integration:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: stable
+      - run: cargo build --locked
+      - name: Samba with a guest-writable share
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq samba
+          sudo mkdir -p /srv/public
+          sudo chmod 0777 /srv/public
+          printf '[global]\nmap to guest = Bad User\nguest account = nobody\n\n[public]\npath = /srv/public\nguest ok = yes\nread only = no\n' | sudo tee /etc/samba/smb.conf
+          sudo systemctl restart smbd
+      - name: drop, list, clean against the live share
+        run: |
+          ./target/debug/hash-bait drop -t 127.0.0.1 -c 127.0.0.1 -s public --no-listen
+          test "$(ls /srv/public | grep -c '^@bait\.')" = "3"
+          ./target/debug/hash-bait list -t 127.0.0.1 | grep -q public
+          ./target/debug/hash-bait clean -t 127.0.0.1 -s public
+          test -z "$(ls -A /srv/public)"
