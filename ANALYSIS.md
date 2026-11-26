@@ -86,9 +86,11 @@ written, and the port is tested against those recordings.
 - **The SMB stack is young.** `smb` 0.12 is pure Rust and maintained, but has
   nowhere near impacket's mileage. Oddball servers (old Samba, printers, NAS
   firmware) may misbehave in ways smbclient wouldn't.
-- **Anonymous drops** rely on the target permitting guest/null sessions;
-  verified against Samba's `map to guest`, expected to fail (loudly, not
-  silently) against default Windows.
+- **Anonymous drops are guest sessions.** The NTLM stack cannot express a
+  true null session (empty identity is rejected), so `guest` + empty
+  password is the portable equivalent — caught by CI against Samba's
+  `map to guest` on day one. Default Windows refuses it: loudly, not
+  silently.
 - macOS binaries are cross-compiled and unsigned — untested.
 
 ## Roadmap candidates (not in v1.0.0)

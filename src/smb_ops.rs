@@ -7,8 +7,11 @@ use smb::{
     FileDispositionInformation, Resource, UncPath, WriteAt,
 };
 
-/// Credentials for a session. Anonymous means a null/guest attempt with an
-/// empty identity, with unsigned guest access permitted.
+/// Credentials for a session. "Anonymous" is a guest attempt: the NTLM
+/// implementation cannot express a true null session (empty identity), so
+/// the portable equivalent is user `guest` with an empty password — on hosts
+/// that map unknown or guest users to a guest account (Samba `map to guest`,
+/// typical NAS boxes) this is the anonymous path.
 pub struct Creds {
     pub username: String,
     pub password: String,
@@ -31,7 +34,7 @@ impl Creds {
 
     pub fn anonymous() -> Creds {
         Creds {
-            username: String::new(),
+            username: "guest".to_string(),
             password: String::new(),
             anonymous: true,
         }
@@ -57,7 +60,7 @@ pub fn connect(target: &str, share: &str, creds: &Creds) -> Result<Client, Strin
         .share_connect(&unc, &creds.username, creds.password.clone())
         .map_err(|e| {
             if creds.anonymous {
-                format!("anonymous session to //{target}/{share} failed: {e}")
+                format!("guest session to //{target}/{share} failed (host refuses guest access — try -u): {e}")
             } else {
                 format!("authentication to //{target}/{share} failed: {e}")
             }

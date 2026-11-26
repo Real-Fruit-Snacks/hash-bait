@@ -37,7 +37,7 @@ I got tired of doing this in three tools — one to write the bait files, smbcli
 ## Known issues
 
 - `listen` needs Responder, which only runs on Linux. On Windows it explains and exits 4.
-- Anonymous (null-session) drops only work where the target allows guest access — Samba and misconfigured NAS devices do, Windows targets almost never do.
+- Anonymous drops are guest sessions — the Rust SMB stack can't express a true null session, so `guest` + empty password is the portable equivalent. Works where the target maps guest or unknown users (Samba, NAS devices); default Windows refuses it.
 - The macOS binaries are not notarized; first run needs `xattr -d com.apple.quarantine` on the binary.
 
 ## Configuration
