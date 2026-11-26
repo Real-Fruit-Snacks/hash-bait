@@ -25,7 +25,7 @@ const AMBER: &str = "\x1b[38;2;255;194;71m"; // #FFC247
 const FAULT: &str = "\x1b[38;2;255;92;108m"; // #FF5C6C Signal Crimson
 const STEEL: &str = "\x1b[38;2;116;184;232m"; // #74B8E8
 const MUTE: &str = "\x1b[38;2;179;181;192m"; // #B3B5C0
-// §11's 16-colour row, for terminals without truecolour.
+                                             // §11's 16-colour row, for terminals without truecolour.
 const BEACON16: &str = "\x1b[91m"; // bright red
 const MINT16: &str = "\x1b[32m"; // green
 const AMBER16: &str = "\x1b[33m"; // yellow
