@@ -37,7 +37,7 @@ I got tired of doing this in three tools — one to write the bait files, smbcli
 ## Known issues
 
 - `listen` needs Responder, which only runs on Linux. On Windows it explains and exits 4.
-- Anonymous drops are guest sessions — the Rust SMB stack can't express a true null session, so `guest` + empty password is the portable equivalent. Works where the target maps guest or unknown users (Samba, NAS devices); default Windows refuses it.
+- Anonymous drops are guest sessions — the Rust SMB stack can't express a true null session, so `guest` + empty password is the portable equivalent. Against servers that accept the session before SSPI completes (Samba `map to guest`, most NAS devices), the `smb` crate currently errors with "SMB session setup succeeded before SSPI authentication completed" — a crate limitation, not fixable from here. Guest access is best-effort; authenticated drops are the tested path (CI proves them against a live Samba share on every commit). Default Windows refuses guest either way.
 - The macOS binaries are not notarized; first run needs `xattr -d com.apple.quarantine` on the binary.
 
 ## Configuration
