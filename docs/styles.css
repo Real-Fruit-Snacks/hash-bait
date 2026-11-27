@@ -930,10 +930,22 @@ a {
 /* Panels share one grid cell with zero gap; zero padding/border/bg on [role="tabpanel"] itself for hidden="until-found" */
 .hb-panels {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .hb-panels > [role="tabpanel"] {
   grid-area: 1 / 1;
+  min-width: 0;
+}
+
+.hb-panels > [role="tabpanel"][hidden] {
+  pointer-events: none;
+  z-index: 0;
+}
+
+.hb-panels > [role="tabpanel"]:not([hidden]) {
+  position: relative;
+  z-index: 1;
 }
 
 .hb-panel-inner {
