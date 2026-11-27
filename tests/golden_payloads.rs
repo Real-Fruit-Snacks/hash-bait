@@ -1,6 +1,6 @@
 //! Golden tests: the Rust generators must reproduce the original Python
 //! tool's payload bytes exactly. Goldens were captured from lure 1.x
-//! (see ANALYSIS.md — "Behavior parity").
+//! (see docs/ANALYSIS.md — "Behavior parity").
 
 use hash_bait::payloads::{render, render_all, Kind};
 

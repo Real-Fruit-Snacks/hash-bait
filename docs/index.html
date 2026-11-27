@@ -63,7 +63,7 @@
 <div class="rfs-scroll-region page-scroll" id="page-scroll">
 <main class="wrap stack">
 <section class="card first" aria-labelledby="top-h">
-    <p class="runhead"><b>hash-bait 1.0.0</b><span>Windows · Linux · macOS</span><span>Rust, one static binary</span><span>MIT</span></p>
+    <p class="runhead"><b>hash-bait 1.0.1</b><span>Windows · Linux · macOS</span><span>Rust, one static binary</span><span>MIT</span></p>
     <div class="hero">
         <div>
             <h1 class="title" id="top-h">hash-bait</h1>
@@ -115,7 +115,7 @@
 
 <section class="card ref" id="what" aria-labelledby="what-h">
     <h2 id="what-h">What's in it</h2>
-    <p class="intro">Four subcommands cover the whole errand. Everything takes <code>--dry-run</code> to print the plan with no side effects, and every status line starts with a bracketed tag — <code>[ok]</code>, <code>[!]</code>, <code>[x]</code>, <code>[i]</code> — so output stays meaningful piped or with <code>NO_COLOR</code> set.</p>
+    <p class="intro">Four subcommands cover the whole errand. <code>drop</code> and <code>clean</code> take <code>--dry-run</code> to print the plan with no side effects, and every status line starts with a bracketed tag — <code>[ok]</code>, <code>[!]</code>, <code>[x]</code>, <code>[i]</code> — so output stays meaningful piped or with <code>NO_COLOR</code> set.</p>
     <div class="cols">
         <ul class="ck spec">
             <li><span class="ch">Drop the bait</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>drop</code></span>
@@ -131,7 +131,7 @@
             <li><span class="ch">Authenticated sessions</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>-u</code></span>
                 <p class="why"><code>-u svc-reader</code>, <code>-u LAB/svc-reader</code> or <code>-u svc-reader@LAB.LOCAL</code>, with the password from <code>$HASH_BAIT_PASSWORD</code> or an <code>--ask-pass</code> prompt. No username at all tries a guest session — best-effort, see known issues.</p></li>
             <li><span class="ch">Pick the payloads</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>-p</code></span>
-                <p class="why"><code>-p url,scf,xml</code> (the default, <code>all</code>) or any subset, and <code>--name</code> changes the <code>@bait</code> basename when the default is burned. <code>--save-local</code> also writes copies in the current folder for inspection.</p></li>
+                <p class="why">Repeatable: <code>-p url -p scf -p xml</code> (or <code>-p all</code>, the default) for any subset, and <code>--name</code> changes the <code>@bait</code> basename when the default is burned. <code>--save-local</code> also writes copies in the current folder for inspection.</p></li>
         </ul>
     </div>
 </section>

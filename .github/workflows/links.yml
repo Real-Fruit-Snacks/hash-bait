@@ -1,0 +1,33 @@
+name: links
+
+# Links in the README, docs Markdown, and the GitHub Pages site. Runs on push/PR
+# when docs change and monthly because external targets move independently.
+on:
+  push:
+    branches: [main]
+    paths: ['**.md', 'docs/**.html', '.github/workflows/links.yml']
+  pull_request:
+    paths: ['**.md', 'docs/**.html', '.github/workflows/links.yml']
+  schedule:
+    - cron: '17 6 5 * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lychee:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+      - uses: lycheeverse/lychee-action@v2
+        with:
+          args: >-
+            --no-progress --max-retries 4 --retry-wait-time 10 --timeout 30
+            --accept 200,206,429
+            --exclude '^https://github\.com/Real-Fruit-Snacks/hash-bait/(issues/new|security/advisories/new)'
+            --remap '^https://github\.com/Real-Fruit-Snacks/hash-bait/blob/main/(.*)$ file://${{ github.workspace }}/$1'
+            README.md CHANGELOG.md SECURITY.md 'docs/*.md' 'docs/*.html'
+          fail: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

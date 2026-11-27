@@ -7,6 +7,8 @@ Drop poisoned shortcuts on SMB shares to coerce NTLM hashes
   <img alt="hash-bait: bait files on a writable share become NetNTLMv2 captures in Responder" src="docs/assets/cover-light.svg" width="100%">
 </picture>
 
+## Quick start
+
 ```powershell
 irm https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.ps1 | iex
 ```
@@ -15,40 +17,24 @@ irm https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.p
 curl -fsSL https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.sh | sh
 ```
 
-I got tired of doing this in three tools — one to write the bait files, smbclient to push them, Responder to catch the hashes — and of picking bait out of client shares by hand afterwards. hash-bait is the whole errand as one static binary: it renders `.url`/`.scf`/`.xml` payloads, puts them on the share with its own SMB2/3 stack (no smbclient, no Python), starts Responder, and cleans up after itself. It assumes you have written authorization for the target and a Linux listener on the network. For authorized security testing only.
+Preview a drop without writing or uploading anything:
 
-## What's in it
+```sh
+hash-bait drop -t dc1 -c 10.10.14.7 -s public -u svc-reader -i eth0 --dry-run
+```
 
-| Command | Does |
-|---|---|
-| `hash-bait drop` | Renders bait and puts it on a writable share; starts Responder unless `--no-listen` |
-| `hash-bait clean` | Removes previously dropped bait, matched by basename |
-| `hash-bait list` | Enumerates shares on a target over IPC$ + srvsvc |
-| `hash-bait listen` | Starts Responder on an interface (Linux only) |
+- **One static binary:** Renders `.url`, `.scf`, and `.xml` bait files, uploads and removes them over a native Rust SMB2/3 stack (no `smbclient`, no Python), and hands off to Responder on Linux.
+- **Four subcommands:** `drop`, `clean`, `list`, and `listen`, with `--dry-run` planning on `drop`/`clean`, repeatable `-p` payload selection, and bracketed status tags (`[ok]`, `[!]`, `[x]`, `[i]`) that respect `NO_COLOR`.
+- **Local-first:** Talks only to the target SMB host and local Responder process with zero accounts, zero telemetry, and no local staging files unless `--save-local` is set.
+- **Authorized testing only:** Built for authorized security testing with explicit written permission; capturing coerced NetNTLM hashes requires a Linux host running Responder.
 
-`drop` and `clean` take `--dry-run` to print the plan with no side effects, `-u`/`--pass`/`--ask-pass` for authenticated sessions, and `-d` for a subdirectory when the share root is read-only.
+## Documentation
 
-## Tested on
-
-- Windows 11 · stable Rust — build host; unit, golden and CLI tests
-- windows-2022 · live Windows share — CI drops, lists and cleans against it on every commit
-- ubuntu-24.04 · live Samba share — CI drops and cleans against it on every commit (`list` is Windows-only, see below)
-- *Not* tested: macOS — cross-compiled and unsigned; probably works, no promises
-
-## Known issues
-
-- `listen` needs Responder, which only runs on Linux. On Windows it explains and exits 4.
-- `list` enumerates shares over DCE/RPC, and the `smb` crate offers only the NDR64 transfer syntax when binding. Windows accepts it (CI proves `list` against a live Windows share); Samba's srvsvc endpoint rejects it. Until the crate learns classic NDR, `list` is Windows-only — against Samba/NAS targets it fails loudly while `drop`/`clean` work fine.
-- Anonymous drops are guest sessions — the Rust SMB stack can't express a true null session, so `guest` + empty password is the portable equivalent. Against servers that accept the session before SSPI completes (Samba `map to guest`, most NAS devices), the `smb` crate currently errors with "SMB session setup succeeded before SSPI authentication completed" — a crate limitation, not fixable from here. Guest access is best-effort; authenticated drops are the tested path (CI proves them against a live Samba share on every commit). Default Windows refuses guest either way.
-- The macOS binaries are not notarized; first run needs `xattr -d com.apple.quarantine` on the binary.
-
-## Configuration
-
-- `HASH_BAIT_PASSWORD` — password source between `--pass` and `--ask-pass`
-- `NO_COLOR` or `--no-color` — plain output
+- [Project page](https://real-fruit-snacks.github.io/hash-bait/)
+- [Usage, CLI reference, tested platforms & known issues](docs/USAGE.md)
+- [Rewrite analysis & behavior parity](docs/ANALYSIS.md)
+- [Changelog](CHANGELOG.md) · [Security](SECURITY.md)
 
 ## License
 
-[MIT](LICENSE). For authorized security testing with explicit written permission only.
-
-[Project page](https://real-fruit-snacks.github.io/hash-bait/) · [Changelog](CHANGELOG.md) · [Security](SECURITY.md) · [Analysis](ANALYSIS.md)
+[MIT](LICENSE). For authorized security testing with explicit written permission only. Bundled self-hosted web fonts in `docs/fonts/` are licensed under the [SIL Open Font License 1.1](docs/fonts/OFL.txt).

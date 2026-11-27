@@ -1,7 +1,29 @@
 * text=auto
 
+# Enforce LF on text, code, docs, config, and SVG files across platforms.
+*.rs           text eol=lf
+*.toml         text eol=lf
+*.lock         text eol=lf
+*.md           text eol=lf
+*.html         text eol=lf
+*.css          text eol=lf
+*.js           text eol=lf
+*.json         text eol=lf
+*.webmanifest  text eol=lf
+*.svg          text eol=lf
+*.yml          text eol=lf
+*.yaml         text eol=lf
+*.sh           text eol=lf
+*.ps1          text eol=lf
+*.txt          text eol=lf
+.gitattributes text eol=lf
+.gitignore     text eol=lf
+LICENSE        text eol=lf
+
+# Binary assets are never normalized.
+*.png   binary
+*.ico   binary
+*.woff2 binary
+
 # Golden payloads are byte-exact references — never normalize them.
 tests/golden/* -text
-
-# Shell scripts keep LF everywhere.
-install.sh text eol=lf

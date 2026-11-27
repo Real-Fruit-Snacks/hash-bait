@@ -1,0 +1,34 @@
+name: Bug report
+description: Report a reproducible defect or platform issue
+labels: ["bug"]
+body:
+  - type: textarea
+    id: summary
+    attributes:
+      label: What happened
+      description: Plain description of the input, command or action, and actual output.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: What you expected to happen instead.
+    validations:
+      required: true
+  - type: textarea
+    id: repro
+    attributes:
+      label: Reproduction steps
+      placeholder: |
+        1. Run `hash-bait --version`
+        2. Run `hash-bait ...`
+    validations:
+      required: true
+  - type: input
+    id: env
+    attributes:
+      label: OS and version
+      placeholder: "Windows 11 24H2 / Rust 1.84 / hash-bait v1.0.1"
+    validations:
+      required: true

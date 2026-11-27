@@ -21,7 +21,7 @@ authentication to Responder. Four subcommands: `drop`, `clean`, `listen`,
 | Responder handoff | `sudo responder -I <iface> -wv` | Yes — unchanged (Linux only) |
 | Password sources | flag > env > prompt | Yes — env renamed (below) |
 | Dry run | printed the smbclient command | Yes — now prints the plan |
-| Catppuccin Mocha palette, ASCII banner | hardcoded ANSI | No — Nightshift palette, no banner |
+| Catppuccin Mocha palette, ASCII banner | hardcoded ANSI | No — Cyclorama Dawn palette, no banner |
 
 ### Weaknesses found in review
 
@@ -68,7 +68,7 @@ written, and the port is tested against those recordings.
 | Env var `LURE_PASSWORD` | `HASH_BAIT_PASSWORD` | renamed with the tool |
 | Dry run printed the smbclient command | dry run prints the plan (render / put / listen) | there is no smbclient command any more |
 | `list` via `smbclient -L` | native IPC$ + srvsvc (`NetShareEnumAll`) | the smb crate grew RPC support; the feature survived the cut list |
-| ASCII-art banner, Catppuccin Mocha | no banner, Nightshift palette with `ok`/`warn`/`fail` words | RFS brand: real tools, no filler; status is never color-only |
+| ASCII-art banner, Catppuccin Mocha | no banner, Cyclorama Dawn palette with `ok`/`warn`/`fail` words | RFS brand: real tools, no filler; status is never color-only |
 
 ## Verification
 
