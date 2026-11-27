@@ -55,7 +55,7 @@ body {
     font: 400 1rem/1.62 var(--rfs-font-sans);
     -webkit-font-smoothing: antialiased;
 }
-::selection { background: var(--rfs-beacon-fill); color: var(--rfs-on-beacon); }
+::selection { background: var(--rfs-primary); color: var(--rfs-on-primary); }
 :focus-visible { outline: 2px solid var(--rfs-focus); outline-offset: 3px; border-radius: 3px; }
 
 :root {
@@ -113,8 +113,8 @@ p { margin: 0 0 1rem; text-wrap: pretty; }
 .rfs-skip {
     position: fixed; left: 1rem; top: -4rem; z-index: 120;
     padding: .55rem .95rem;
-    background: var(--rfs-beacon-fill); color: var(--rfs-on-beacon);
-    border-radius: var(--rfs-radius-xs);
+    background: var(--rfs-primary); color: var(--rfs-on-primary);
+    border-radius: 4px;
     font: 600 .85rem/1 var(--rfs-font-mono); text-decoration: none;
     transition: top .15s ease;
 }
@@ -127,6 +127,11 @@ p { margin: 0 0 1rem; text-wrap: pretty; }
     position: relative;
     background:
         linear-gradient(125deg var(--rfs-in-oklab), color-mix(in oklab, var(--rfs-steel) 16%, transparent) 0%, transparent 48%, color-mix(in oklab, var(--rfs-beacon) 12%, transparent) 100%),
+        var(--ground);
+}
+:root[data-theme="light"] .page-scroll {
+    background:
+        linear-gradient(125deg var(--rfs-in-oklab), color-mix(in oklab, var(--rfs-steel) 24%, transparent) 0%, transparent 48%, color-mix(in oklab, var(--rfs-beacon) 20%, transparent) 100%),
         var(--ground);
 }
 @media (prefers-reduced-motion: no-preference) { .page-scroll { scroll-behavior: smooth; } }
@@ -151,7 +156,7 @@ p { margin: 0 0 1rem; text-wrap: pretty; }
     display: inline-flex; align-items: center; gap: .45rem;
     font: 500 .75rem/1 var(--rfs-font-mono); letter-spacing: .06em;
     color: var(--rfs-text); background: var(--rfs-surface);
-    border: 1px solid var(--rfs-line-strong); border-radius: var(--rfs-radius-xs);
+    border: 1px solid var(--rfs-line-strong); border-radius: 4px;
     padding: .48rem .72rem; min-height: 2.25rem;
     cursor: pointer; white-space: nowrap; flex: none;
     transition: border-color .18s, background-color .18s;
@@ -348,7 +353,7 @@ p { margin: 0 0 1rem; text-wrap: pretty; }
 .screen .rest { color: transparent; }
 .screen .cursor {
     display: inline-block; width: .6em; height: 15px; margin-right: -.6em;
-    vertical-align: -3px; background: var(--live);
+    vertical-align: -3px; background: #FFC247;
 }
 .screen .ln.wait { display: none; }
 @media (prefers-reduced-motion: no-preference) { .screen .cursor.blink { animation: blink 1s steps(1) 2; } }
@@ -364,7 +369,7 @@ p { margin: 0 0 1rem; text-wrap: pretty; }
 .replay {
     font: 600 .72rem/1 var(--rfs-font-mono); letter-spacing: .07em; text-transform: uppercase;
     color: var(--ink); background: var(--card-2);
-    border: 1px solid var(--rule-strong); border-radius: var(--rfs-radius-xs);
+    border: 1px solid var(--rule-strong); border-radius: 4px;
     min-height: 36px; padding: 0 .9rem; cursor: pointer;
     transition: border-color 150ms var(--ease);
 }
@@ -424,5 +429,15 @@ p { margin: 0 0 1rem; text-wrap: pretty; }
 
 /* ---------- this page: hash-bait ---------- */
 .is-bait { --tab: var(--rfs-beacon-ink); }
+.is-bait .theme-btn,
+.is-bait .replay,
+.is-bait .top-nav a,
+.is-bait .foot a { min-height: 44px; }
+.is-bait .top-nav a { display: inline-flex; align-items: center; }
+.is-bait .ck li[data-state="live"] .why code {
+    background: color-mix(in oklab, var(--on-live) 14%, transparent);
+    border-color: color-mix(in oklab, var(--on-live) 36%, transparent);
+    color: var(--on-live);
+}
 .screen .i { color: #74B8E8; }
 .screen .a { color: #FFC247; }

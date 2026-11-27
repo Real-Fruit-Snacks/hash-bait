@@ -1,7 +1,7 @@
 // hash-bait docs (Cyclorama Dawn v2.1.0): the module below is the pwn handbook's shared script
 // (pwn-broker, pwn-shop, pwn-playbooks, pwn-report), used unchanged so every RFS page behaves
 // the same. Dark (LX 263) default; Light (LX 512) opt-in toggle with radial View Transition and
-// cross-tab rfs-theme storage sync. hash-bait's own init starts at "this page".
+// cross-tab rfs-theme and color-scheme storage sync. hash-bait's own init starts at "this page".
 var Handbook = (function () {
     var root = document.documentElement;
     var still = matchMedia('(prefers-reduced-motion: reduce)');
@@ -35,8 +35,13 @@ var Handbook = (function () {
         }, 2400);
     }
 
-    // ---- theme: LX 263 dark explicit default; LX 512 light opt-in; rfs-theme shared across RFS ----
+    // ---- theme: LX 263 dark explicit default; LX 512 light opt-in; rfs-theme + color-scheme shared across RFS ----
     function isLight() { return root.dataset.theme === 'light'; }
+    function readTheme() {
+        try {
+            return localStorage.getItem('rfs-theme') || localStorage.getItem('color-scheme');
+        } catch (e) { return null; }
+    }
     function syncMeta() {
         var light = isLight();
         var mc = document.querySelector('meta[name="theme-color"]');
@@ -58,23 +63,31 @@ var Handbook = (function () {
             var next = isLight() ? 'dark' : 'light';
             var commit = function () {
                 applyTheme(next);
-                try { localStorage.setItem('rfs-theme', next); } catch (e) {}
+                try {
+                    localStorage.setItem('rfs-theme', next);
+                    localStorage.setItem('color-scheme', next);
+                } catch (e) {}
             };
             if (!document.startViewTransition || still.matches) return commit();
             var r = toggle.getBoundingClientRect(), x = r.left + r.width / 2, y = r.top + r.height / 2;
             var end = Math.hypot(Math.max(x, innerWidth - x), Math.max(y, innerHeight - y));
-            document.startViewTransition(commit).ready.then(function () {
+            var transition = document.startViewTransition(commit);
+            var animated = transition.ready.then(function () {
                 root.animate(
                     { clipPath: ['circle(0px at ' + x + 'px ' + y + 'px)', 'circle(' + end + 'px at ' + x + 'px ' + y + 'px)'] },
                     { duration: 520, easing: 'cubic-bezier(.22, .61, .36, 1)', pseudoElement: '::view-transition-new(root)' }
                 );
             });
+            // Hidden tabs and rapid toggles can abort any public transition promise.
+            Promise.allSettled([animated, transition.updateCallbackDone, transition.finished]);
         });
     }
     window.addEventListener('storage', function (ev) {
-        if (ev.key === 'rfs-theme') applyTheme(ev.newValue);
+        if (ev.key === 'rfs-theme' || ev.key === 'color-scheme' || ev.key === null) applyTheme(ev.newValue);
     });
-    syncMeta();
+    var stored = readTheme();
+    if (stored) applyTheme(stored);
+    else syncMeta();
 
     // ---- copy ----
     $$('[data-copy]').forEach(function (b) {
